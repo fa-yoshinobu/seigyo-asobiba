@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>リレー式エレベーター</title>
+<meta name="description" content="3階建てのリレー式エレベーターを操作して、呼びの記憶、方向選択、着床、戸の連動を観察する教材。制作：FA Labo。">
+<link rel="canonical" href="https://learn.fa-labo.com/apps/relay-elevator.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: 左に建物(機械室+昇降路)、右に展開接続図。下に「いま起きていること」・操作・リレー動作の記録。単一のダーク作業場テーマ */
+:root{
+  color-scheme:dark;
+  --bg:#191d20;--bench:#22282c;--ink:#ebe7de;--muted:#98a2a6;--line:#343c41;--accent:#ff8a1f;--live:#ffc061;--bad:#ff4b3a;
+  --f-display:"Zen Kaku Gothic New",system-ui,sans-serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic","Meiryo",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;background-image:radial-gradient(1200px 700px at 30% 10%,#262d31 0%,var(--bg) 70%)}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 28px;max-width:1520px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px}
+h1{font-family:var(--f-display);font-weight:400;font-size:28px;margin:0;line-height:1.1}
+html:lang(en) h1 em{margin-left:.2em}
+h1 em{font-style:normal;color:var(--accent)}
+header p{margin:0;color:var(--muted)}
+.grid{display:grid;grid-template-columns:minmax(300px,.75fr) minmax(0,1.25fr);gap:16px;align-items:start}
+.grid.top{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
+.now{min-height:6.5em}
+@media (max-width:1000px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--bench);border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0}
+.card h2{font-family:var(--f-display);font-weight:400;font-size:16px;margin:0 0 8px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.card h2 span{font-family:var(--f-body);font-size:12px;color:var(--muted)}
+.seg2{display:inline-flex;border:1px solid #3d474d;border-radius:9px;overflow:hidden}
+.seg2 button{font:inherit;font-family:var(--f-body);font-size:13px;font-weight:500;background:#2b3236;color:var(--muted);border:0;padding:6px 14px;cursor:pointer}
+.seg2 button+button{border-left:1px solid #3d474d}
+.seg2 button[aria-pressed="true"]{background:#4a3a22;color:#ffd9a8}
+.bld{background:#2a3034;border-radius:10px;padding:6px}
+.bld svg{display:block;width:100%;height:auto;max-height:680px;margin:0 auto;user-select:none}
+.lad svg{display:block;width:100%;height:auto;user-select:none}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.sticky{position:sticky;top:10px}
+@media (max-width:1000px){.sticky{position:static}}
+.lad{background:#f3f0e7;border-radius:8px;overflow-x:auto}
+.lad svg{min-width:520px}
+.now{font-size:15px;line-height:1.75;background:#15191b;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:10px 14px;min-height:5.4em}
+.now b.ph{font-family:var(--f-display);font-weight:400;color:var(--live);font-size:17px;display:block;margin-bottom:2px}
+.steps{display:flex;flex-wrap:wrap;gap:4px;margin:10px 0 0}
+.steps span{font-size:12px;font-weight:500;color:var(--muted);background:#1b2023;border:1px solid var(--line);border-radius:999px;padding:3px 10px}
+.steps span.on{background:#4a3214;border-color:#b06c2a;color:#ffe0b8}
+.ctl{display:grid;gap:8px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.lbl{font-size:12px;color:var(--muted);min-width:6em}
+.btn{font:inherit;font-weight:500;font-size:13px;color:var(--ink);background:#2b3236;border:1px solid #3d474d;border-radius:8px;padding:7px 12px;cursor:pointer;box-shadow:0 2px 0 #0d1012}
+.btn:active{transform:translateY(1px);box-shadow:0 1px 0 #0d1012}
+.btn.call{min-width:3.4em;font-family:var(--f-mono)}
+.btn.call.lit{background:#5a3a10;border-color:#ffb347;color:#ffe0b8;box-shadow:0 0 10px rgba(255,179,71,.4)}
+.btn.warn{border-color:#8a5a2a;color:#ffd0a0}
+.btn[aria-pressed="true"]{background:#5a2a10;border-color:#ff8a1f;color:#ffd0a0}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.log{list-style:none;margin:0;padding:0;font-size:13px;line-height:1.55;max-height:260px;overflow-y:auto;display:grid;gap:3px}
+.log li{display:grid;grid-template-columns:8.5em 1fr;gap:8px;color:#cfd3cf}
+.log li .k{font-family:var(--f-mono);font-weight:500;color:var(--live)}
+.log li.off .k{color:#7d8a84}
+.log li.warn{color:#ffb3a8}
+.src{font-size:12px;color:var(--muted);line-height:1.7}
+.src a{color:#9fc8ff}
+.lg .ct{stroke:#2c2c2c;stroke-width:2.2;fill:none;stroke-linecap:round}
+.lg .on .ct{stroke:#e46a00}
+.lg .wire{stroke:#2c2c2c;stroke-width:1.8;fill:none}
+.lg .rung.live .wire{stroke:#e46a00;stroke-width:2.6}
+.lg text{font-family:var(--f-body);font-size:10px;fill:#222}
+.lg .rl{font-weight:500;font-size:11px}
+.lg .cm{font-size:10px;fill:#7a5a30}
+.lg .coil{fill:#fff;stroke:#2c2c2c;stroke-width:2}
+.lg .coil.on{fill:#ffb347}
+.svgt{font-family:var(--f-body);font-weight:500;pointer-events:none}
+.svgm{font-family:var(--f-mono);font-weight:500;pointer-events:none}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+*{box-sizing:border-box}body{margin:0}b,strong{font-weight:500}
+.home{color:#ffd9a8;text-underline-offset:3px}
+.sponsor{display:flex;flex-wrap:wrap;align-items:center;gap:14px 24px;padding:18px 22px;border:1px solid #b06c2a;border-left:5px solid var(--accent);border-radius:12px;background:linear-gradient(110deg,#382919,#22282c 75%)}
+.sponsor-brand{display:flex;flex-direction:column;gap:3px}
+.sponsor-brand small{font-size:11px;color:#c9b69d}
+.sponsor-brand strong{font:500 27px var(--f-body);letter-spacing:.04em;color:#ffe0b8}
+.sponsor-copy{flex:1;min-width:200px}
+.sponsor-copy p{margin:0;color:var(--ink);font-weight:500;font-size:16px}
+.sponsor-copy small{display:block;margin-top:5px;color:#c5c7c2;line-height:1.6}
+.sponsor-cta{display:inline-block;padding:12px 16px;border-radius:8px;background:var(--accent);color:#211407;font-weight:500;text-decoration:none;text-align:center}
+.sponsor-cta:hover{background:#ffb054}
+.sponsor-cta:focus-visible{outline:3px solid #fff;outline-offset:3px}
+@media(max-width:600px){.sponsor{padding:16px;gap:12px}.sponsor-copy{flex-basis:100%;min-width:0}.sponsor-cta{width:100%}}
+.intro{margin:0;line-height:1.8}.guide{line-height:1.8;margin:10px 0}.guide p{margin:6px 0}.guide strong{color:#ffd9a8}
+.topics{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}.topics button{font-size:14px}.topics button[aria-pressed="true"]{background:#604013;border-color:#ffb347}
+.lad{max-height:600px;overflow:auto}.lad svg{min-width:760px;overflow:hidden}#pause,#slow,#snd{width:8em;flex-shrink:0}
+summary{cursor:pointer;line-height:1.8;color:#ffd9a8}details[open]>summary{margin-bottom:12px}.legend{font-size:13px;color:#bac3c4;line-height:1.7}
+.seg2{flex-wrap:wrap}select{font:inherit;max-width:100%;padding:8px;background:#2b3236;color:var(--ink);border:1px solid #657078;border-radius:6px}
+@media(max-width:1000px){.grid{grid-template-columns:minmax(0,1fr)}.sticky{position:static}.bld svg{max-height:520px}.wrap{padding-inline:12px}.log li{grid-template-columns:6em 1fr}}
+
+.diagram-tools{margin:10px 0}.notes{padding:0;list-style:none;line-height:1.8}.notes li{padding:8px 0;border-bottom:1px solid var(--line)}.notes small{display:block;color:var(--muted)}.notes .got{color:#ffd9a8}#reset{width:11em;flex-shrink:0}
+</style>
+<link rel="stylesheet" href="../assets/lesson-language.css">
+<script src="../assets/lesson-notebook.js"></script>
+<script defer src="../assets/english-cache.js"></script>
+<script defer src="../assets/lesson-terms.js"></script>
+<script defer src="../assets/elevator-english.js"></script>
+<script defer src="../assets/lesson-language.js"></script>
+</head>
+<body>
+
+<div class="wrap">
+  <a class="home" href="../index.html">← メニューに戻る</a>
+  <aside class="sponsor" aria-label="制作元 FA Labo のご案内">
+    <div class="sponsor-brand"><small>この教材の制作元</small><strong>FA Labo</strong></div>
+    <div class="sponsor-copy"><p>PLC更新・設備改修をお考えの方へ</p><small>PLC更新・制御盤改造・HMI/SCADA に対応。<br>現状調査から設計・現場の試運転までご相談いただけます。</small></div>
+    <a class="sponsor-cta" href="https://fa-labo.com/">PLC更新・設備改修を相談する ↗</a>
+  </aside>
+  <header>
+    <h1>リレー式<em>エレベーター</em></h1><select class="language-picker" data-language aria-label="Language / 言語" translate="no"><option value="ja" lang="en">Japanese</option><option value="en" lang="en">English</option></select>
+    <p>完成したエレベーターを操作して、リレーが順番に働く様子を観察しよう。</p>
+  </header>
+
+
+
+
+  <p class="intro">まずは <strong>2F</strong> を押してみよう。呼びを覚えて出発し、2階の手前で減速。停止して戸が開くと呼びが消えます。<br>図は観察用です。配線の追加・取り外しはありません。</p>
+  <div class="grid">
+   <div class="col sticky">
+    <div class="card">
+      <div class="ctl" id="ctl">
+        <p class="legend">数字キー 1・2・3 でも呼べます。</p><div class="row"><span class="lbl">乗場から呼ぶ</span><button class="btn call" data-f="2">3F</button><button class="btn call" data-f="1">2F</button><button class="btn call" data-f="0">1F</button></div>
+        <details><summary>かご内の行き先ボタン</summary><div class="row"><span class="lbl">行き先</span><button class="btn call" data-c="0">1</button><button class="btn call" data-c="1">2</button><button class="btn call" data-c="2">3</button></div><p class="legend">乗場は「ここへ来て」、かご内は「ここへ行って」。この教材では同じ階の呼びとして記憶します。</p></details>
+        <div class="row"><span class="lbl">速さ</span><button class="btn" id="slow" aria-pressed="false">ゆっくり</button><button class="btn" id="pause" aria-pressed="false">一時停止</button><button class="btn" id="snd" aria-pressed="false">音 OFF</button><button class="btn" id="reset">最初に戻す</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>建物と機械室<span>ボタン・セレクタ・昇降路のスイッチが光ります</span></h2>
+      <div class="bld"><svg id="bld" viewBox="0 0 400 650" aria-label="エレベーターの建物"></svg></div>
+    </div>
+   </div>
+   <div class="col">
+    <div class="card">
+      <div class="now" id="now"></div>
+      <div class="steps" id="steps"></div>
+    </div>
+    <div class="card">
+      <h2>役割ごとに回路を見る</h2>
+      <div class="topics" id="topics" aria-label="観察する回路">
+        <button class="btn" data-topic="call" aria-pressed="true">① 呼びを覚える</button>
+        <button class="btn" data-topic="direction" aria-pressed="false">② 方向を決める</button>
+        <button class="btn" data-topic="safety" aria-pressed="false">③ 戸と安全</button>
+        <button class="btn" data-topic="travel" aria-pressed="false">④ 走る・止まる</button>
+        <button class="btn" data-topic="door" aria-pressed="false">⑤ 戸を開閉する</button>
+      </div>
+      <div class="guide" id="guide"></div>
+      <label>図の表示 <select id="diagramMode"><option value="focus">選んだ役割だけ</option><option value="all">全回路（詳しく）</option></select></label>
+      <p class="legend" id="viewNote">オレンジは作動中の回路・閉じている接点。図は横にスクロールできます。</p>
+      <div class="row diagram-tools"><button class="btn" id="diagramGrow">高さを広げる（全体表示）</button><button class="btn" id="diagramShrink">高さを狭める −</button><button class="btn" id="diagramZoomIn">拡大 ＋</button><button class="btn" id="diagramZoomOut">縮小 −</button><output id="diagramZoom">100%</output></div>
+      <div id="circuitDiagram" class="lad" tabindex="0" aria-label="回路図。左右・上下にスクロールできます"><svg id="lad" class="lg" viewBox="0 142 640 58" aria-label="リレー回路図"></svg></div>
+      <p class="legend">a接点：リレーが入ると閉じる。b接点：リレーが入ると開く。丸はコイル。線の交差だけでは接続を表しません。<br>これは働きを追うための模式図です。方向の保持や戸の順序制御などを一部省略し、動力回路は描いていません。</p>
+    </div>
+    <div class="card">
+      <details><summary>リレーの動いた順番を見る</summary><p class="legend">新しいものが上。記号と、切り替わった理由を表示します。</p><ul class="log" id="log"></ul></details>
+    </div>
+   </div>
+  </div>
+
+  <section class="card"><h2>発見ノート <span id="cnt"></span></h2><ul id="notes" class="notes"></ul>
+  <small id="noteSaveInfo">発見はこのブラウザーに自動保存されます。</small>
+  <div class="row"><button class="btn" id="noteExport">記録を書き出す</button><button class="btn" id="noteImport">記録を読み込む</button><button class="btn" id="noteClear">記録をクリア</button><input id="noteFile" type="file" accept=".json,application/json" hidden></div><small id="noteStatus" role="status"></small></section>
+  <details class="card src"><summary>この教材のモデルと参考資料</summary><p>3階建て・乗場の上り／下りの呼びを区別しない学習用モデルです。昔のリレー式・二段速度の考え方を扱い、実機の全回路や安全装置を再現するものではありません。</p>
+    <p>参考資料：日立評論（1966）、米国特許 US2240044（1941）、エレベータ博物館 用語集、Elevator Wiki: Selector、エレベーター回路（リレー）。</p>
+  </details>
+  <footer><a class="home" href="../LICENSE.txt">教材・プログラムの利用条件</a></footer>
+</div>
+
+<script>
+(()=>{
+const NS='http://www.w3.org/2000/svg';
+const $=id=>document.getElementById(id);
+function el(t,a,p){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;}
+function tx(p,x,y,s,a={}){const f=a.fill;delete a.fill;const svg=p.ownerSVGElement||p;if(svg.id==='lad'&&a.class==='cm')a['data-translation-width']=240;if(svg.id==='bld')a['data-translation-width']=a['text-anchor']==='end'?270:(x===340?100:90);const t=el('text',Object.assign({x,y},a),p);if(f)t.style.fill=f;t.textContent=s;return t;}
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ---------- 音 ---------- */
+let AC=null,hum=null,sound=false;
+function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}if(AC&&AC.state==='suspended')AC.resume();return AC;}
+function click(big){if(!sound||!AC)return;const a=AC,t=a.currentTime,n=Math.floor(a.sampleRate*.03),b=a.createBuffer(1,n,a.sampleRate),d=b.getChannelData(0);
+  for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,6);const s=a.createBufferSource();s.buffer=b;const f=a.createBiquadFilter();f.type='bandpass';f.frequency.value=big?1400:3000;
+  const g=a.createGain();g.gain.value=big?.18:.09;s.connect(f).connect(g).connect(a.destination);s.start(t);}
+function chime(){if(!sound||!AC)return;const t=AC.currentTime;[880,660].forEach((f,i)=>{const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;g.gain.setValueAtTime(0,t+i*.35);g.gain.linearRampToValueAtTime(.08,t+i*.35+.02);g.gain.exponentialRampToValueAtTime(.001,t+i*.35+.6);o.connect(g).connect(AC.destination);o.start(t+i*.35);o.stop(t+i*.35+.7);});}
+function humSet(v){if(!AC)return;if(!hum){hum={o:AC.createOscillator(),g:AC.createGain(),f:AC.createBiquadFilter()};hum.o.type='sawtooth';hum.f.type='lowpass';hum.f.frequency.value=500;hum.g.gain.value=0;hum.o.connect(hum.f).connect(hum.g).connect(AC.destination);hum.o.start();}
+  hum.o.frequency.value=40+Math.abs(v)*90;hum.g.gain.value=sound?Math.min(.04,Math.abs(v)*.06):0;}
+
+/* ---------- 状態 ---------- */
+const S={car:0,v:0,door:0,C:[0,0,0],U:0,D:0,ST:0,DO:0,DC:0,T:0,tT:0,H:0,L:0,MCU:0,MCD:0,BK:0,SR:1,DS:1,
+  pv:[0,0,0],ES:0,pry:0,finalTop:0,finalBot:0,pulse:[0,0,0],slow:false,pause:false,phase:'idle',lastFloor:0};
+const INITIAL=JSON.stringify(S);
+const FLOORS=['1F','2F','3F'];
+const fl=n=>Math.abs(S.car-n)<.004;
+const below=n=>S.car<n-.004, above=n=>S.car>n+.004;
+
+/* ---------- ロジック(リレーのはたらき) ---------- */
+function step(dt){
+  const moving=S.MCU||S.MCD;
+  // 安全回路
+  S.SR=!S.ES&&!S.pry&&!S.finalTop&&!S.finalBot&&S.door<.01?1:0;
+  S.DS=S.door<.01&&!S.pry?1:0;
+  // 呼びボタン
+  for(let n=0;n<3;n++)if(S.pulse[n]>0){S.pulse[n]=0;
+    if(fl(n)&&!moving&&Math.abs(S.v)<.01){ if(S.DC){S.DC=0;S.T=0;S.tT=0;} if(!S.ST){S.ST=1;S.stopFloor=n;} }
+    else S.C[n]=1;}
+  // 戸の動き
+  if(S.ST&&!moving&&Math.abs(S.v)<.01){
+    if(!S.T&&!S.DC)S.DO=1;
+    if(S.DO){S.door=Math.min(1,S.door+dt/1.2);if(S.door>=1){S.tT+=dt;if(S.tT>=3){S.T=1;}}}
+    if(S.T&&S.DO){S.DO=0;S.DC=1;}
+    if(S.DC){S.door=Math.max(0,S.door-dt/1.4);if(S.door<=0){S.DC=0;S.T=0;S.tT=0;S.ST=0;}}
+    if(S.door>.6)for(let n=0;n<3;n++)if(fl(n))S.C[n]=0;   // 呼び消去
+  }
+  // 方向リレー(U・D)
+  const callsAbove=S.C.some((c,n)=>c&&below(n)), callsBelow=S.C.some((c,n)=>c&&above(n));
+  if(S.U&&!callsAbove&&!moving)S.U=0;
+  if(S.D&&!callsBelow&&!moving)S.D=0;
+  if(!S.U&&!S.D&&!S.ST&&S.door<=0){if(callsAbove)S.U=1;else if(callsBelow)S.D=1;}
+  // 走行用の電磁接触器
+  const run=(S.U||S.D)&&S.SR&&S.DS&&!S.ST;
+  S.MCU=run&&S.U?1:0;S.MCD=run&&S.D?1:0;S.BK=S.MCU||S.MCD?1:0;
+  // 速度(減速スイッチ)
+  let nf=-1;if(S.MCU)nf=Math.ceil(S.car-1e-9);if(S.MCD)nf=Math.floor(S.car+1e-9);
+  S.zone=nf>=0&&nf<=2&&Math.abs(nf-S.car)<.3?nf:-1;
+  S.L=(S.MCU||S.MCD)&&S.zone>=0&&S.C[S.zone]?1:0;S.H=(S.MCU||S.MCD)&&!S.L?1:0;
+  // 動き
+  const vt=S.MCU?(S.H?.55:.12):S.MCD?-(S.H?.55:.12):0;
+  if(S.BK)S.v+=clamp(vt-S.v,-1.2*dt,1.2*dt);else S.v=0;   // ブレーキがかかると止まる
+  const prev=S.car;S.car+=S.v*dt;
+  // 着床(レベルスイッチ)
+  for(let n=0;n<3;n++){if((prev<n&&S.car>=n)||(prev>n&&S.car<=n)){
+    if(S.L&&S.C[n]){S.car=n;S.ST=1;S.stopFloor=n;S.MCU=S.MCD=S.BK=0;S.v=0;S.H=S.L=0;}}}
+  // ファイナルリミット
+  if(S.car>2.12){S.finalTop=1;S.car=Math.min(S.car,2.16);}
+  if(S.car<-.12){S.finalBot=1;S.car=Math.max(S.car,-.16);}
+  if(S.car>=-.15)S.lastFloor=clamp(Math.round(S.car),0,2);
+}
+
+const NOTES=[
+ ['memory','呼びを覚える','ボタンを離しても、呼びを覚え続ける','2Fを押し、走行中も呼びランプが点いていることを見よう。'],
+ ['arrival','着床','呼びのある階の手前で減速し、停止して戸を開く','2Fを押し、減速から戸が開くまで見よう。'],
+ ['clear','呼びの消去','着いた階の呼びだけを消す','2Fと3Fを押し、2階に着いたときのランプを見よう。'],
+ ['direction','方向選択','進む方向の呼びを先に回り、それから戻る','1階から3Fを押し、上昇中に1Fを押して往復を見よう。'],
+ ['door','戸の連動','戸を閉じ終えてから、次の呼びへ出発する','2Fと3Fを押し、2階の戸開閉から次の出発まで見よう。']
+];
+const got=new Set();
+const saveDiscovery=setupNotebook('elevator',NOTES,got,renderNotes);
+function renderNotes(){
+ $('notes').innerHTML=NOTES.map(([id,,text,hint])=>`<li class="${got.has(id)?'got':''}"><span>${got.has(id)?'✓':'○'} ${text}</span><small>${hint}</small></li>`).join('');
+ $('cnt').textContent=got.size+' / '+NOTES.length;
+}
+function found(id){if(!got.has(id)&&saveDiscovery(id)){got.add(id);renderNotes();}}
+let observed={low:false,opened:false,upWithLower:false,topVisited:false};
+function observe(){
+ if(S.C.some((c,n)=>c&&S.pv[n]===0)&&(S.MCU||S.MCD))found('memory');
+ if(S.L)observed.low=true;
+ if(S.door>.8){
+   if(observed.low)found('arrival');
+   if(!S.C[S.lastFloor]&&S.C.some(Boolean))found('clear');
+   if(observed.upWithLower&&S.car===2)observed.topVisited=true;
+   if(observed.topVisited&&S.car===0)found('direction');
+   observed.opened=true;
+ }
+ if(S.MCU&&S.C[0])observed.upWithLower=true;
+ if(observed.opened&&S.door===0&&(S.MCU||S.MCD))found('door');
+}
+renderNotes();
+
+/* ---------- 記録 ---------- */
+const NAMES={C0:['1F呼びリレー','1階の呼びを自己保持で記憶','1階に着いて戸が開いたので呼びを消去'],C1:['2F呼びリレー','2階の呼びを自己保持で記憶','2階に着いて戸が開いたので呼びを消去'],C2:['3F呼びリレー','3階の呼びを自己保持で記憶','3階に着いて戸が開いたので呼びを消去'],
+ U:['U 上昇方向','呼びがかごより上にあるので上昇方向に決定','上に呼びがなくなったので上昇方向を解除'],D:['D 下降方向','呼びがかごより下にあるので下降方向に決定','下に呼びがなくなったので下降方向を解除'],
+ SR:['SR 安全リレー','安全回路の接点がすべて閉じた(戸も閉じている)','安全回路のどこかが開いた(戸が開いた・非常停止など)→ 走行できない'],
+ MCU:['MCU 上昇接触器','モーターに上昇の向きで電気を送る','モーターへの電気を切る'],MCD:['MCD 下降接触器','モーターに下降の向きで電気を送る','モーターへの電気を切る'],
+ BK:['BK ブレーキ','ブレーキを開放(電磁石でブレーキを開く)','ブレーキ作動(ばねで締めて止める)'],
+ H:['H 高速','高速で走行','高速を切る'],L:['L 低速','減速スイッチが働き、低速に切り替え','低速を切る'],
+ ST:['ST 停止','呼びのある階でレベルスイッチが働き、停止','戸閉が終わったので停止リレーを解除'],
+ DO:['DO 戸開','戸を開く','戸開を止める'],T:['T 戸タイマー','戸が開いて3秒たった','タイマーをリセット'],DC:['DC 戸閉','戸を閉める','戸が閉まりきった']};
+let prevR={};const logL=[];
+function track(){const cur={C0:S.C[0],C1:S.C[1],C2:S.C[2],U:S.U,D:S.D,SR:S.SR,MCU:S.MCU,MCD:S.MCD,BK:S.BK,H:S.H,L:S.L,ST:S.ST,DO:S.DO,T:S.T,DC:S.DC};
+  let changed=false;
+  for(const k in cur){if(prevR[k]!==undefined&&prevR[k]!==cur[k]){const n=NAMES[k];addLog(n[0]+(cur[k]?' ON':' OFF'),cur[k]?n[1]:n[2],!cur[k],k==='SR'&&!cur[k]);changed=true;
+      if(k==='ST'&&cur[k])chime();}}
+  if(changed)click(cur.MCU!==prevR.MCU||cur.MCD!==prevR.MCD||cur.BK!==prevR.BK);
+  prevR=cur;}
+function addLog(k,txt,off,warn){logL.unshift({k,txt,off,warn});if(logL.length>40)logL.pop();
+  $('log').innerHTML=logL.map(l=>`<li class="${l.off?'off':''} ${l.warn?'warn':''}"><span class="k">${l.k.split(' ')[0]}</span><span>${l.k.split(' ').slice(1).join(' ')}:${l.txt}</span></li>`).join('');}
+
+/* ---------- いま起きていること ---------- */
+const STEPS=[['call','呼びを記憶'],['dir','方向を決める'],['safe','安全確認'],['run','高速走行'],['slow','減速'],['stop','着床・停止'],['open','戸開'],['close','戸閉']];
+function phase(){
+  if(window.lessonLanguage?.current==='en')return phaseEnglish();
+  if((S.ES||S.pry||S.finalTop||S.finalBot)&&(S.U||S.D||S.C.some(c=>c)))return ['safe','<b class="ph">安全回路が開いている</b>'+(S.ES?'<b>非常停止</b>スイッチが押されています。安全回路は全部の安全スイッチを<b>直列</b>につないでいるので、どれか1つが開くとSRが落ち、すべての走行が止まります。':'<b>2Fの乗場戸</b>が開いています。乗場戸のインターロックスイッチが開き、安全回路が切れました。戸が開いたまま走ることはできません。')];
+  if(S.DO||(S.ST&&S.door>0&&!S.DC&&!S.T))return ['open',`<b class="ph">戸開(${FLOORS[S.stopFloor]})</b><b>ST</b>のa接点で<b>DO(戸開)</b>が入り、戸が開きます。開ききると<b>戸タイマーT</b>が数え始め(あと${Math.max(0,3-S.tT).toFixed(1)}秒)、この階の<b>呼びリレーは消去</b>されます(呼びリレーの回路に入っている「着床・停止」のb接点が開くため)。`];
+  if(S.DC||S.T)return ['close','<b class="ph">戸閉</b><b>T</b>がタイムアップして<b>DC(戸閉)</b>が入り、戸が閉まります。閉まりきると戸スイッチ(DS)が閉じ、<b>ST</b>が解除されて、残っている呼びに向けて方向が決め直されます。'];
+  if(S.ST)return ['stop',`<b class="ph">着床・停止(${FLOORS[S.stopFloor]})</b>呼びのある階で<b>レベルスイッチ</b>が働き、<b>ST(停止)</b>が入りました。STのb接点で<b>MCU/MCD</b>が切れ、ブレーキ(BK)がばねで締まって止まります。`];
+  if(S.L)return ['slow',`<b class="ph">減速(${FLOORS[S.zone]}の手前)</b>昇降路の<b>減速スイッチ</b>が、呼びのある${FLOORS[S.zone]}に近づいたことを知らせ、<b>H(高速)</b>から<b>L(低速)</b>に切り替わりました。ゆっくり近づいてから止まるので、床の段差が小さくなります(交流二段速度)。`];
+  if(S.H)return ['run',`<b class="ph">高速走行(${S.MCU?'上昇':'下降'})</b>安全回路(SR)・戸閉(DS)・方向(${S.MCU?'U':'D'})がそろったので<b>${S.MCU?'MCU':'MCD'}</b>が入り、モーターが回ります。同時に<b>BK</b>でブレーキを開放。機械室の<b>セレクタ</b>も、かごと一緒に動いて位置を伝えています。`];
+  if((S.U||S.D)&&!S.DS)return ['safe','<b class="ph">安全確認</b>方向は決まりましたが、<b>戸が閉まりきっていない</b>(DSが開いている)ので走れません。'];
+  if(S.U||S.D)return ['dir',`<b class="ph">方向決定</b>呼びが${S.U?'上':'下'}にあるので<b>${S.U?'U(上昇)':'D(下降)'}</b>が入りました。反対の方向リレーは${S.U?'U':'D'}のb接点で入らないようにしています(インターロック)。`];
+  if(S.C.some(c=>c))return ['call','<b class="ph">呼びを記憶</b>呼びリレーが<b>自己保持</b>で呼びを覚えています。'];
+  return ['idle','<b class="ph">待機中('+FLOORS[S.lastFloor]+')</b>乗場ボタンかかご内ボタンを押してみよう。押した階の<b>呼びリレー</b>が自己保持で呼びを覚え、ボタンが点灯します。いくつか続けて押すと、上昇中は上の呼びを全部回ってから下に向かいます。'];
+}
+
+function phaseEnglish(){
+ if(S.ES||S.pry||S.finalTop||S.finalBot)return ['safe','<b class="ph">Safety circuit open</b>Travel is inhibited because a safety contact is open.'];
+ if(S.DO||(S.ST&&S.door>0&&!S.DC&&!S.T))return ['open',`<b class="ph">Doors opening (${FLOORS[S.stopFloor]})</b>ST enables DO. Once the doors are fully open, timer T counts down (${Math.max(0,3-S.tT).toFixed(1)} s remaining). The served floor call is cleared as its doors open.`];
+ if(S.DC||S.T)return ['close','<b class="ph">Doors closing</b>Timer T enables DC. Once the doors are fully closed, DS closes and ST resets. The next pending call can then be served.'];
+ if(S.ST)return ['stop',`<b class="ph">Leveling and stopping (${FLOORS[S.stopFloor]})</b>The level switch triggers ST at the requested floor. MCU/MCD switch off and the spring-applied brake stops the car.`];
+ if(S.L)return ['slow',`<b class="ph">Slowing before ${FLOORS[S.zone]}</b>The slowdown switch changes the drive from high speed H to low speed L. The car approaches the floor slowly before stopping. This model represents a two-speed drive.`];
+ if(S.H)return ['run',`<b class="ph">High-speed travel (${S.MCU?'up':'down'})</b>SR, DS and the direction relay enable ${S.MCU?'MCU':'MCD'}. BK releases the brake. The selector follows the car and signals its position.`];
+ if((S.U||S.D)&&!S.DS)return ['safe','<b class="ph">Waiting for closed doors</b>The direction is selected, but DS is open, so the car cannot travel.'];
+ if(S.U||S.D)return ['dir',`<b class="ph">Direction selected</b>${S.U?'U (up)':'D (down)'} is energized. Its normally closed contact prevents the opposite direction relay from energizing.`];
+ if(S.C.some(Boolean))return ['call','<b class="ph">Call stored</b>A seal-in contact keeps the floor request active.'];
+ return ['idle',`<b class="ph">Waiting at ${FLOORS[S.lastFloor]}</b>Press a landing or car button. Its call relay stores the request. Calls ahead are served before the car reverses direction.`];
+}
+
+/* ---------- 建物の描画 ---------- */
+const B={};
+const FY=n=>600-n*150;          // 各階の床のy
+function buildBld(){
+  const g=$('bld');g.innerHTML='';
+  el('defs',{},g).innerHTML=`<linearGradient id="wl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d9dcd6"/><stop offset="1" stop-color="#c3c7c1"/></linearGradient>
+   <linearGradient id="cw" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c9d2d8"/><stop offset=".5" stop-color="#eef2f4"/><stop offset="1" stop-color="#b9c3ca"/></linearGradient>`;
+  el('rect',{x:0,y:0,width:400,height:650,fill:'url(#wl)'},g);
+  // 機械室
+  el('rect',{x:0,y:0,width:400,height:120,fill:'#9aa3a8'},g);el('rect',{x:0,y:118,width:400,height:6,fill:'#6d757a'},g);
+  tx(g,10,18,'機械室',{class:'svgt','font-size':12,fill:'#222'});
+  // モーターと綱車
+  el('rect',{x:70,y:46,width:70,height:44,rx:8,fill:'#3b5d82'},g);tx(g,105,74,'M',{class:'svgt','font-size':18,'text-anchor':'middle',fill:'#dfe8f0'});
+  B.sheave=el('g',{},g);el('circle',{cx:0,cy:0,r:26,fill:'#7b858b',stroke:'#333','stroke-width':2},B.sheave);el('rect',{x:-3,y:-26,width:6,height:52,fill:'#ff8a1f'},B.sheave);
+  B.shoeL=el('rect',{x:156,y:52,width:8,height:34,rx:2,fill:'#c8281c'},g);B.shoeR=el('rect',{x:216,y:52,width:8,height:34,rx:2,fill:'#c8281c'},g);
+  tx(g,190,108,'ブレーキ',{class:'svgt','font-size':10,'text-anchor':'middle',fill:'#222'});B.bkT=tx(g,190,40,'',{class:'svgt','font-size':10,'text-anchor':'middle',fill:'#b2261c'});
+  // セレクタ
+  el('rect',{x:288,y:6,width:104,height:110,rx:6,fill:'#e8e2d2',stroke:'#7a7360'},g);tx(g,340,113,'橙=着床 青=かごより上',{class:'svgt','font-size':8,'text-anchor':'middle',fill:'#333'});tx(g,340,20,'セレクタ',{class:'svgt','font-size':11,'text-anchor':'middle',fill:'#222'});
+  el('rect',{x:312,y:36,width:8,height:70,fill:'#5d666c'},g);
+  B.selC=[0,1,2].map(n=>{const y=100-n*30;tx(g,370,y+4,FLOORS[n],{class:'svgm','font-size':10,'text-anchor':'middle',fill:'#333'});return el('circle',{cx:348,cy:y,r:6,fill:'#444'},g);});
+  tx(g,336,122,'',{});
+  B.selCar=el('rect',{x:304,y:96,width:24,height:10,rx:2,fill:'#ff8a1f'},g);
+  // 昇降路
+  el('rect',{x:120,y:124,width:180,height:526,fill:'#3a3f44'},g);
+  // ロープ
+  B.rope=el('line',{x1:140,y1:92,x2:140,y2:200,stroke:'#222','stroke-width':2.5},g);B.rope2=el('line',{x1:290,y1:92,x2:290,y2:300,stroke:'#222','stroke-width':2.5},g);
+  el('line',{x1:140,y1:92,x2:290,y2:92,stroke:'#222','stroke-width':2.5,opacity:.4},g);
+  // つり合いおもり
+  B.cw=el('rect',{x:278,y:300,width:24,height:60,rx:3,fill:'#5d666c',stroke:'#222'},g);
+  // かご
+  B.car=el('g',{},g);
+  el('rect',{x:142,y:0,width:120,height:120,rx:4,fill:'url(#cw)',stroke:'#555','stroke-width':2},B.car);
+  el('rect',{x:150,y:10,width:104,height:100,fill:'#f4efe2'},B.car);
+  el('circle',{cx:202,cy:46,r:10,fill:'#f1c9a5'},B.car);el('rect',{x:190,y:56,width:24,height:40,rx:8,fill:'#5fa8e8'},B.car);
+  el('rect',{x:262,y:40,width:10,height:40,fill:'#ff8a1f'},B.car);   // カム(スイッチを押す)
+  // 昇降路スイッチ(減速・レベル)
+  B.sw=[0,1,2].map(n=>{const y=FY(n);const o={};
+    o.lev=el('rect',{x:274,y:y-70,width:14,height:20,rx:2,fill:'#666'},g);
+    o.sdU=el('rect',{x:276,y:y-70+50,width:10,height:10,rx:2,fill:'#666'},g);o.sdD=el('rect',{x:276,y:y-70-50,width:10,height:10,rx:2,fill:'#666'},g);
+    return o;});
+  tx(g,281,FY(2)-158,'減速・レベル',{class:'svgt','font-size':9,'text-anchor':'middle',fill:'#ddd'});tx(g,281,FY(2)-148,'スイッチ',{class:'svgt','font-size':9,'text-anchor':'middle',fill:'#ddd'});
+  // 各階
+  B.floor=[0,1,2].map(n=>{const y=FY(n);const o={};
+    el('rect',{x:0,y,width:400,height:12,fill:'#8b7a62'},g);
+    tx(g,30,y-40,FLOORS[n],{class:'svgt','font-size':20,'text-anchor':'middle',fill:'#333'});
+    // 乗場戸
+    o.dL=el('rect',{x:142,y:y-120,width:60,height:120,fill:'#9aa8b2',stroke:'#555'},g);o.dR=el('rect',{x:202,y:y-120,width:60,height:120,fill:'#9aa8b2',stroke:'#555'},g);
+    el('rect',{x:136,y:y-128,width:132,height:8,fill:'#6d757a'},g);
+    // インジケーター
+    o.ind=[0,1,2].map(k=>{el('rect',{x:70+k*18,y:y-118,width:14,height:16,rx:2,fill:'#1a1d1f'},g);return tx(g,77+k*18,y-106,String(k+1),{class:'svgm','font-size':11,'text-anchor':'middle',fill:'#444'});});
+    // 乗場ボタン
+    el('rect',{x:84,y:y-74,width:26,height:40,rx:4,fill:'#c0c6ca',stroke:'#666'},g);
+    o.btn=el('circle',{cx:97,cy:y-54,r:8,fill:'#ddd',stroke:'#666',style:'cursor:pointer'},g);o.btn.setAttribute('role','button');o.btn.setAttribute('tabindex','0');o.btn.setAttribute('aria-label',FLOORS[n]+'へ呼ぶ');o.btn.addEventListener('click',()=>press(n));o.btn.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();press(n);}});
+    tx(g,97,y-82,'呼び',{class:'svgt','font-size':9,'text-anchor':'middle',fill:'#333'});
+    o.lock=el('circle',{cx:270,cy:y-110,r:4,fill:'#2a7a3a'},g);
+    return o;});
+  tx(g,392,FY(0)+32,'●=乗場戸のスイッチ(緑=閉)',{class:'svgt','font-size':10,'text-anchor':'end',fill:'#f0ead8'});
+}
+function renderBld(){
+  const carY=FY(S.car)-120;B.car.setAttribute('transform',`translate(0 ${carY})`);
+  B.rope.setAttribute('y2',carY);B.cw.setAttribute('y',FY(2-S.car)-100);B.rope2.setAttribute('y2',FY(2-S.car)-100);
+  B.sheave.setAttribute('transform',`translate(190 69) rotate(${S.car*360*1.4})`);
+  B.shoeL.setAttribute('x',S.BK?150:156);B.shoeR.setAttribute('x',S.BK?222:216);B.bkT.textContent=S.BK?'開放':'作動中';B.bkT.style.fill=S.BK?'#2a7a3a':'#b2261c';
+  B.selCar.setAttribute('y',96-S.car*30);B.selC.forEach((c,n)=>c.setAttribute('fill',fl(n)?'#ffb347':(below(n)?'#5fb0ff':'#444')));
+  const cur=Math.round(S.car);
+  B.floor.forEach((o,n)=>{const open=(fl(n)?S.door:0);const w=60*(1-open*.92);
+    o.dL.setAttribute('width',w);o.dR.setAttribute('x',202+60-w);o.dR.setAttribute('width',w);
+    if(n===1&&S.pry){o.dL.setAttribute('width',30);o.dR.setAttribute('x',232);o.dR.setAttribute('width',30);}
+    o.btn.setAttribute('fill',S.C[n]?'#ffb347':'#ddd');
+    o.ind.forEach((t,k)=>t.style.fill=k===S.lastFloor?'#ff5a3c':'#444');
+    o.lock.setAttribute('fill',(n===1&&S.pry)||(fl(n)&&S.door>0)?'#ff3b2b':'#2a7a3a');});
+  B.sw.forEach((o,n)=>{o.lev.setAttribute('fill',fl(n)?'#ffb347':'#666');
+    const inz=S.zone===n&&(S.MCU||S.MCD);o.sdU.setAttribute('fill',inz&&S.MCD?'#ffb347':'#666');o.sdD.setAttribute('fill',inz&&S.MCU?'#ffb347':'#666');});
+  document.querySelectorAll('.btn.call').forEach(b=>{const n=+(b.dataset.f??b.dataset.c);b.classList.toggle('lit',!!S.C[n]);});
+}
+
+/* ---------- 展開接続図 ---------- */
+const LG=[];
+function buildLad(){
+  const g=$('lad');g.innerHTML='';const XL=22,XR=618,XC=574;
+  el('line',{x1:XL,y1:20,x2:XL,y2:810,class:'wire'},g);el('line',{x1:XR,y1:20,x2:XR,y2:810,class:'wire'},g);
+  tx(g,XL,14,'+',{class:'rl','text-anchor':'middle'});tx(g,XR,14,'−',{class:'rl','text-anchor':'middle'});
+  const rung=(y,live)=>{const r=el('g',{class:'rung','data-y':y},g);LG.push({el:r,fn:live,rung:true});return r;};
+  const W=(p,pts)=>el('path',{d:'M'+pts.map(q=>q.join(' ')).join(' L'),class:'wire'},p);
+  const ct=(p,x,y,label,b,fn)=>{const c=el('g',{},p);el('circle',{cx:x,cy:y,r:2,fill:'#2c2c2c'},c);el('circle',{cx:x+26,cy:y,r:2,fill:'#2c2c2c'},c);
+    if(b)el('line',{x1:x+26,y1:y-9,x2:x+26,y2:y,stroke:'#2c2c2c','stroke-width':1.8},c);
+    const bl=el('line',{x1:x,y1:y,x2:x+27,y2:y,class:'ct'},c);tx(c,x+13,y-12,label,{'text-anchor':'middle'});LG.push({el:c,bl,x,y,b,fn});return c;};
+  const coil=(p,y,label,fn,cm,below)=>{const c=el('circle',{cx:XC,cy:y,r:13,class:'coil'},p);tx(p,XC,y+4,label,{class:'rl','text-anchor':'middle'});LG.push({el:c,coil:true,fn});if(cm)tx(p,XC-18,below?y+20:y-16,cm,{class:'cm','text-anchor':'end'});};
+  const sideL=(p,y)=>W(p,[[XL,y]]);
+  // 1 安全回路
+  let y=44,r=rung(y,()=>S.SR);
+  const safe=[['非常停止',1,()=>!S.ES],['調速機',0,()=>1],['上部終端',1,()=>!S.finalTop],['下部終端',1,()=>!S.finalBot],['1F戸',0,()=>!(fl(0)&&S.door>0)],['2F戸',0,()=>!S.pry&&!(fl(1)&&S.door>0)],['3F戸',0,()=>!(fl(2)&&S.door>0)],['かご戸',0,()=>S.door<.01]];
+  W(r,[[XL,y],[40,y]]);safe.forEach((s,i)=>{const x=40+i*58;ct(r,x,y,s[0],0,s[2]);if(i<safe.length-1)W(r,[[x+26,y],[x+58,y]]);});W(r,[[40+7*58+26,y],[XC-13,y]]);W(r,[[XC+13,y],[XR,y]]);
+  coil(r,y,'SR',()=>S.SR,'安全リレー(安全スイッチを全部直列)',1);
+  // 2-4 呼びリレー
+  [0,1,2].forEach(n=>{y=104+n*62;const rr=rung(y,()=>S.C[n]);
+    W(rr,[[XL,y],[50,y]]);ct(rr,50,y,FLOORS[n]+'ボタン',0,()=>S.pv[n]>0);W(rr,[[76,y],[150,y]]);
+    W(rr,[[38,y],[38,y+24],[50,y+24]]);ct(rr,50,y+24,'C'+(n+1),0,()=>S.C[n]);W(rr,[[76,y+24],[110,y+24],[110,y]]);
+    ct(rr,150,y,'セレクタ '+FLOORS[n]+'着床',1,()=>!(fl(n)&&S.ST&&S.door>.6));W(rr,[[176,y],[XC-13,y]]);W(rr,[[XC+13,y],[XR,y]]);
+    coil(rr,y,'C'+(n+1),()=>S.C[n],n===0?'呼びリレー(自己保持)':'');});
+  // 5 U
+  y=300;r=rung(y,()=>S.U);
+  W(r,[[XL,y],[50,y]]);ct(r,50,y,'C2',0,()=>S.C[1]);W(r,[[76,y],[100,y]]);ct(r,100,y,'2Fより下',0,()=>below(1));W(r,[[126,y],[200,y]]);
+  W(r,[[38,y],[38,y+24],[50,y+24]]);ct(r,50,y+24,'C3',0,()=>S.C[2]);W(r,[[76,y+24],[100,y+24]]);ct(r,100,y+24,'3Fより下',0,()=>below(2));W(r,[[126,y+24],[160,y+24],[160,y]]);
+  ct(r,200,y,'D',1,()=>!S.D);W(r,[[226,y],[XC-13,y]]);W(r,[[XC+13,y],[XR,y]]);coil(r,y,'U',()=>S.U,'上昇方向(上の呼びが残る間は保持)');
+  tx(r,300,y+28,'「〜より下」はセレクタの接点',{class:'cm'});
+  // 6 D
+  y=360;r=rung(y,()=>S.D);
+  W(r,[[XL,y],[50,y]]);ct(r,50,y,'C1',0,()=>S.C[0]);W(r,[[76,y],[100,y]]);ct(r,100,y,'1Fより上',0,()=>above(0));W(r,[[126,y],[200,y]]);
+  W(r,[[38,y],[38,y+24],[50,y+24]]);ct(r,50,y+24,'C2',0,()=>S.C[1]);W(r,[[76,y+24],[100,y+24]]);ct(r,100,y+24,'2Fより上',0,()=>above(1));W(r,[[126,y+24],[160,y+24],[160,y]]);
+  ct(r,200,y,'U',1,()=>!S.U);W(r,[[226,y],[XC-13,y]]);W(r,[[XC+13,y],[XR,y]]);coil(r,y,'D',()=>S.D,'下降方向');
+  // 7 ST
+  y=424;r=rung(y,()=>S.ST);
+  W(r,[[XL,y],[50,y]]);ct(r,50,y,'セレクタ 停止接点',0,()=>S.ST&&!S.DC);W(r,[[76,y],[220,y]]);
+  W(r,[[38,y],[38,y+22],[50,y+22]]);ct(r,50,y+22,'ST',0,()=>S.ST);W(r,[[76,y+22],[150,y+22],[150,y]]);
+  ct(r,220,y,'戸閉端LS',1,()=>!(S.DC&&S.door<=.01));W(r,[[246,y],[XC-13,y]]);W(r,[[XC+13,y],[XR,y]]);coil(r,y,'ST',()=>S.ST,'停止(レベルスイッチ)');
+  // 8 MCU / 9 MCD
+  const runR=(yy,dir)=>{const rr=rung(yy,()=>dir==='U'?S.MCU:S.MCD);W(rr,[[XL,yy],[50,yy]]);
+    const items=[['SR',0,()=>S.SR],['戸閉 DS',0,()=>S.DS],['ST',1,()=>!S.ST],[dir,0,()=>dir==='U'?S.U:S.D],[dir==='U'?'MCD':'MCU',1,()=>dir==='U'?!S.MCD:!S.MCU]];
+    items.forEach((it,i)=>{const x=50+i*70;ct(rr,x,yy,it[0],it[1],it[2]);W(rr,[[x+26,yy],[x+70,yy]]);});W(rr,[[50+4*70+26,yy],[XC-13,yy]]);W(rr,[[XC+13,yy],[XR,yy]]);
+    coil(rr,yy,dir==='U'?'MCU':'MCD',()=>dir==='U'?S.MCU:S.MCD,dir==='U'?'上昇接触器(モーターへ)':'下降接触器');};
+  runR(490,'U');runR(536,'D');
+  // 10 速度
+  y=592;r=rung(y,()=>S.H||S.L);W(r,[[XL,y],[50,y]]);ct(r,50,y,'MCU',0,()=>S.MCU);W(r,[[76,y],[130,y]]);W(r,[[38,y],[38,y+22],[50,y+22]]);ct(r,50,y+22,'MCD',0,()=>S.MCD);W(r,[[76,y+22],[110,y+22],[110,y]]);
+  ct(r,130,y,'減速SW',1,()=>!S.L);W(r,[[156,y],[XC-13,y]]);W(r,[[XC+13,y],[XR,y]]);coil(r,y,'H',()=>S.H,'高速');
+  W(r,[[120,y],[120,y+44],[130,y+44]]);ct(r,130,y+44,'減速SW',0,()=>S.L);W(r,[[156,y+44],[XC-13,y+44]]);W(r,[[XC+13,y+44],[XR,y+44]]);coil(r,y+44,'L',()=>S.L,'低速');
+  // 11 BK
+  y=668;r=rung(y,()=>S.BK);W(r,[[XL,y],[50,y]]);ct(r,50,y,'MCU',0,()=>S.MCU);W(r,[[76,y],[XC-13,y]]);W(r,[[38,y],[38,y+20],[50,y+20]]);ct(r,50,y+20,'MCD',0,()=>S.MCD);W(r,[[76,y+20],[110,y+20],[110,y]]);W(r,[[XC+13,y],[XR,y]]);coil(r,y,'BK',()=>S.BK,'ブレーキ開放');
+  // 12 戸
+  y=722;r=rung(y,()=>S.DO||S.DC);W(r,[[XL,y],[50,y]]);ct(r,50,y,'ST',0,()=>S.ST);W(r,[[76,y],[110,y]]);ct(r,110,y,'T',1,()=>!S.T);W(r,[[136,y],[300,y]]);
+  ct(r,300,y,'DC',1,()=>!S.DC);W(r,[[326,y],[XC-13,y]]);W(r,[[XC+13,y],[XR,y]]);coil(r,y,'DO',()=>S.DO,'戸開 → 開ききるとT(3秒)');
+  W(r,[[90,y],[90,y+26],[110,y+26]]);ct(r,110,y+26,'T',0,()=>S.T);W(r,[[136,y+26],[XC-13,y+26]]);W(r,[[XC+13,y+26],[XR,y+26]]);coil(r,y+26,'DC',()=>S.DC,'戸閉');
+  y=792;r=rung(y,()=>S.T);W(r,[[XL,y],[50,y]]);ct(r,50,y,'DO',0,()=>S.DO);W(r,[[76,y],[110,y]]);ct(r,110,y,'戸開端LS',0,()=>S.door>=1);W(r,[[136,y],[XC-13,y]]);W(r,[[XC+13,y],[XR,y]]);coil(r,y,'T',()=>S.T,'戸タイマー(3秒)');
+}
+function renderLad(){LG.forEach(o=>{const on=!!o.fn();
+  if(o.rung)o.el.classList.toggle('live',on);
+  else if(o.coil)o.el.classList.toggle('on',on);
+  else{o.el.classList.toggle('on',on);let x2=o.x+27,y2=o.y;if(!on){if(o.b){x2=o.x+25;y2=o.y+11;}else{x2=o.x+24;y2=o.y-10;}}o.bl.setAttribute('x2',x2);o.bl.setAttribute('y2',y2);}});}
+
+/* ---------- 操作 ---------- */
+function press(n){ac();S.pulse[n]=1;S.pv[n]=.6;}
+document.querySelectorAll('.btn.call').forEach(b=>b.addEventListener('click',()=>press(+(b.dataset.f??b.dataset.c))));
+$('slow').onclick=e=>{ac();S.slow=!S.slow;e.currentTarget.setAttribute('aria-pressed',S.slow);};
+$('pause').onclick=e=>{ac();S.pause=!S.pause;e.currentTarget.setAttribute('aria-pressed',S.pause);e.currentTarget.textContent=S.pause?'再開':'一時停止';};
+$('reset').onclick=()=>{
+ const slow=S.slow;Object.keys(S).forEach(k=>delete S[k]);Object.assign(S,JSON.parse(INITIAL),{slow});
+ observed={low:false,opened:false,upWithLower:false,topVisited:false};prevR={};logL.length=0;
+ $('pause').textContent='一時停止';$('pause').setAttribute('aria-pressed','false');
+ addLog('準備 待機','1Fで待機しています。ボタンを押してみよう',1,0);
+ renderBld();renderLad();lastPh='';humSet(0);
+};
+let diagramScale=1;
+function zoom(delta){diagramScale=Math.max(.6,Math.min(2,Math.round((diagramScale+delta)*10)/10));$('lad').style.minWidth=760*diagramScale+'px';$('lad').style.width=(100*diagramScale)+'%';$('diagramZoom').textContent=Math.round(diagramScale*100)+'%';}
+$('diagramZoomIn').onclick=()=>zoom(.1);$('diagramZoomOut').onclick=()=>zoom(-.1);
+$('diagramGrow').onclick=()=>{$('circuitDiagram').style.maxHeight='none';};
+$('diagramShrink').onclick=()=>{$('circuitDiagram').style.maxHeight='300px';};
+document.addEventListener('keydown',e=>{if(!e.repeat&&!e.ctrlKey&&!e.altKey&&!e.metaKey&&!e.target.closest('input,select,textarea,button')&&/^[1-3]$/.test(e.key)){press(+e.key-1);}});
+$('snd').onclick=e=>{sound=!sound;e.currentTarget.setAttribute('aria-pressed',sound);e.currentTarget.textContent=sound?'音 ON':'音 OFF';};
+
+/* ---------- ループ ---------- */
+buildBld();buildLad();
+const TOPICS={
+ call:{box:'0 142 640 58',title:'2階の呼びを覚える（C2）',body:'2Fを押すとC2が入り、自分のa接点で呼びを覚え続けます。ボタンを離しても消えません。2階に着いて戸が開くと、着床・停止に連動した接点が保持を切ります。1階・3階も同じ仕組みです。',try:'2Fを押し、ボタンの点灯が戸を開くまで続くことを見てみよう。'},
+ direction:{box:'0 270 640 130',title:'位置と呼びから方向を選ぶ（U・D）',body:'セレクタは、かごと連動して「何階より上／下か」を接点で知らせる装置です。上に呼びがあればU、下ならDを選び、互いのb接点で同時に入るのを防ぎます。この教材では進む方向に呼びが残る間は、その方向を保ちます。',try:'1階から3Fを押し、上昇中に1Fも押すと、3階に行ってから1階に戻ります。乗場の上り／下り呼びは区別しない簡略モデルです。'},
+ safety:{box:'0 5 640 75',title:'各階の戸を確かめて走る（SR・DS）',body:'自分がいる階だけでなく、各階の乗場戸とかご戸の閉状態を確認します。乗場戸は閉鎖・施錠を確認するインターロックが重要です。安全接点を直列にして、どれかが開くと走行許可を切ります。',try:'戸が開くとSRが切れ、戸を閉じ終わるまで走り出さないことを見てみよう。通常の戸開中にSRが切れるのは故障ではありません。'},
+ travel:{box:'0 390 640 310',title:'階の手前で減速して着床する（H・L・ST・BK）',body:'呼びのある階の手前で減速信号を受け、高速Hから低速Lへ切り替えます。床の高さでレベルスイッチが働くとSTで走行接触器MCU/MCDを切り、BKの励磁が切れてブレーキがかかります。',try:'2Fへ向かう途中で「ゆっくり」を押し、高速→低速→停止を追ってみよう。速度を二段階に切り替える方式のモデルです。'},
+ door:{box:'0 690 640 130',title:'着床してから戸を開け、時間をおいて閉じる（DO・T・DC）',body:'停止後にDOで戸を開き、開ききってから3秒を数えます。Tの時間が来るとDCで戸を閉じ、戸閉確認後に次の呼びへ出発します。時間が来ただけでは、戸が閉じたことにはなりません。',try:'2Fと3Fを押し、2階で戸を閉じ終えてから3階へ出発する様子を見てみよう。'}
+};
+let topic='call';
+function selectDiagram(){
+ const t=TOPICS[topic],mode=$('diagramMode').value;
+ $('guide').innerHTML='<strong>'+t.title+'</strong><p>'+t.body+'</p><p>試す：'+t.try+'</p>';
+ $('lad').setAttribute('viewBox',mode==='all'?'0 0 640 820':t.box);
+ const rows={call:[166],direction:[300,360],safety:[44],travel:[424,490,536,592,668],door:[722,792]};
+ $('lad').querySelectorAll('.rung').forEach(r=>r.style.display=mode==='all'||rows[topic].includes(+r.dataset.y)?'':'none');
+ document.querySelectorAll('#topics button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.topic===topic));
+}
+document.querySelectorAll('#topics button').forEach(b=>b.onclick=()=>{topic=b.dataset.topic;$('diagramMode').value='focus';selectDiagram();});
+$('diagramMode').onchange=selectDiagram;
+selectDiagram();
+const stepsBox=$('steps');stepsBox.innerHTML=STEPS.map(s=>`<span data-k="${s[0]}">${s[1]}</span>`).join('');
+let last=performance.now(),lastPh='';
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;
+  if(!S.pause){const sp=S.slow?.35:1;const n=4;for(let i=0;i<n;i++)step(dt*sp/n);}
+  for(let n=0;n<3;n++)S.pv[n]=Math.max(0,S.pv[n]-dt);
+  observe();track();renderBld();renderLad();humSet(S.pause?0:S.v);
+  const [k,h]=phase();if(h!==lastPh){$('now').innerHTML=h;lastPh=h;}
+  stepsBox.querySelectorAll('span').forEach(s=>s.classList.toggle('on',s.dataset.k===k));
+  requestAnimationFrame(loop);}
+addLog('準備 待機','1Fで待機しています。ボタンを押してみよう',1,0);
+window.__S=S;
+requestAnimationFrame(t=>{last=t;requestAnimationFrame(loop);});
+})();
+</script>
+
+</body>
+</html>

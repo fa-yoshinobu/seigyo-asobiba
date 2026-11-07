@@ -1,5 +1,11 @@
 // Short labels for diagrams and reviewed electrical terminology take precedence over automatic translations.
 window.lessonTerms = {
+  'リレー式エレベーター':'Relay Elevator',
+  '動きを観察':'Watch it work',
+  '初めてならカチッとリレーから。応用例はリレー式エレベーターで観察できます。':'Start with Click Relay. Then explore its practical application in Relay Elevator.',
+  '3階建てのエレベーターを操作して、呼びの記憶・方向の選択・減速と着床・戸の連動を観察します。役割ごとに回路を大きく表示します。':'Operate a three-floor elevator and observe call memory, direction selection, slowing, leveling and door sequencing. View one circuit function at a time.',
+  '呼びの記憶':'Call memory','セレクタ':'Selector','着床':'Leveling','戸の連動':'Door sequencing',
+
   '同じ長さ・同じヒーター台数で、電線を太くすると電圧降下が小さくなる':'With the same wire length and number of heaters, thicker wire reduces the voltage drop.',
   '部品のしくみだけを見る':'Explore inside the components',
   'リレー・タイマー・スイッチなど16種類。中の動きを見て、しくみを学ぼう。':'Explore 16 components, including relays, timers and switches. Watch their internal motion to learn how they work.',

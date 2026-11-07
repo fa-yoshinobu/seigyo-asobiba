@@ -61,7 +61,7 @@
     }
     texts.set(node,{ja,en});
     node.data = en;
-    const maxWidth = width * (partLabel ? 1.28 : 1.1);
+    const maxWidth = Number(element.getAttribute('data-translation-width')) || width * (partLabel ? 1.28 : 1.1);
     if (width > 0 && element.getComputedTextLength() > maxWidth) {
       element.setAttribute('textLength',String(maxWidth));
       element.setAttribute('lengthAdjust','spacingAndGlyphs');

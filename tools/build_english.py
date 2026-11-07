@@ -45,10 +45,12 @@ def phrases():
             if not isinstance(node, Comment):
                 add(str(node))
 
-    for path in [ROOT / "index.html", *sorted((ROOT / "apps").glob("*.html"))]:
+    for path in [ROOT / "index.html", *sorted((ROOT / "apps").glob("*.html")), ROOT / "assets" / "lesson-notebook.js"]:
         source = path.read_text(encoding="utf-8")
-        markup(source)
-        for code in re.findall(r"<script\b[^>]*>(.*?)</script>", source, re.S | re.I):
+        if path.suffix == ".html":
+            markup(source)
+        scripts = [source] if path.suffix == ".js" else re.findall(r"<script\b[^>]*>(.*?)</script>", source, re.S | re.I)
+        for code in scripts:
             stack = [PARSER.parse(code.encode()).root_node]
             while stack:
                 node = stack.pop()
