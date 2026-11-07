@@ -26,6 +26,15 @@
 
 ## 教材を更新するとき
 
+### Google Search Console
+
+- URLプレフィックスで登録する場合は `https://learn.fa-labo.com/` を指定し、所有権を確認します。
+- GitHub Pagesへの公開後、Search Consoleの「サイトマップ」で `sitemap.xml` を送信します。公開URLは `https://learn.fa-labo.com/sitemap.xml` です。
+- `robots.txt` からも同じサイトマップを案内しています。トップページと両教材の3つの正規URLを登録し、言語切替・部品表示など同じ教材の表示違いは重複登録しません。
+- ページを追加・移動したときは `sitemap.xml` と各ページの正規URL（canonical）を更新します。所有権確認にHTMLタグやファイルを使う場合は、Search Consoleから発行された実際の値を設定してください。
+
+### 開発と動作確認
+
 各教材の動作と図は `apps/` にあります。「部品のしくみ」の単独画面も、リレー盤と同じ図を使います。
 
 - **動作確認**　Node.js と Playwright が必要です。初回は `npm install --no-save --package-lock=false playwright` と `npx playwright install chromium` を実行します。面や部屋を変更したら `node tests/smoke.js` で両教材を確認します。発見ノート、配線判定、部品図、言語切り替えのテストも [tests/](tests/) にあります。
