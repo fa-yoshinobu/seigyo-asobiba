@@ -1,0 +1,2121 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>カチッとリレー</title>
+<script>
+if(new URLSearchParams(location.search).get('view')==='parts'){
+  document.documentElement.classList.add('parts-only');
+  document.title='部品のしくみ | カチッとリレー';
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* 広い画面では左に展開接続図、右に制御盤を並べる。 */
+:root{
+  color-scheme: dark;
+  --bg:#191d20; --bench:#22282c; --ink:#ebe7de; --muted:#98a2a6; --line:#343c41;
+  --accent:#ff8a1f; --live:#ffc061;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;
+  background-image:radial-gradient(1200px 700px at 30% 20%,#262d31 0%,var(--bg) 70%)}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 24px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}
+h1{font-weight:400;font-size:28px;margin:0;letter-spacing:.02em;line-height:1}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-left:auto}
+a.back{font:inherit;font-weight:500;font-size:13px;color:var(--ink);background:#2b3236;border:1px solid #3d474d;border-radius:8px;padding:7px 12px;text-decoration:none;box-shadow:0 2px 0 #0d1012;white-space:nowrap}a.back:hover{background:#333b40}a.back:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.t{font:inherit;font-weight:500;font-size:13px;color:var(--ink);background:#2b3236;border:1px solid #3d474d;border-radius:8px;padding:7px 12px;cursor:pointer;box-shadow:0 2px 0 #0d1012}
+button.t:hover{background:#333b40}
+button.t:active{transform:translateY(1px);box-shadow:0 1px 0 #0d1012}
+button.t[aria-pressed="true"]{background:#4a3a22;border-color:#a8692a;color:#ffd9a8}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+nav.stages{display:flex;flex-wrap:wrap;gap:6px}
+nav.stages button{font:inherit;flex:0 0 auto;display:flex;align-items:center;gap:8px;background:#22292d;border:1px solid var(--line);color:var(--muted);border-radius:10px;padding:5px 10px 5px 6px;cursor:pointer;font-weight:500;font-size:12.5px}
+nav.stages button .n{font-family:var(--f-mono);font-weight:500;font-size:15px;width:24px;height:24px;border-radius:7px;display:grid;place-items:center;background:#14181a;color:var(--ink)}
+nav.stages button:hover{color:var(--ink)}
+nav.stages button[aria-current="true"]{background:#3a2a16;border-color:#b06c2a;color:#ffe0b8}
+nav.stages button[aria-current="true"] .n{background:var(--accent);color:#1a1206}
+
+.main{
+  --work-gap:16px;--diagram-scale:1;
+  --half-width:calc((100% - var(--work-gap)) / 2);
+  display:grid;gap:var(--work-gap);align-items:start;
+  grid-template:"circuit board" auto "side parts" auto "notes notes" auto /
+    minmax(0,calc(var(--half-width) * min(1,var(--diagram-scale)))) minmax(0,1fr);
+}
+.board-column{grid-area:board;min-width:0;container-type:inline-size}
+.circuit-card{grid-area:circuit}
+.side{grid-area:side}
+.main>#partCard{grid-area:parts}
+.notebook-card{grid-area:notes}
+@media(max-width:1000px){
+  .main{grid-template:"circuit" auto "board" auto "parts" auto "side" auto "notes" auto / minmax(0,1fr)}
+}
+.stage{perspective:max(1700px,240vw);padding:6px 4px 26px}
+.cabinet{transform:rotateX(13deg) rotateY(-5deg);transform-origin:50% 60%;
+  background:linear-gradient(#5b6266,#41474b);border-radius:14px;padding:14px;
+  box-shadow:0 1px 0 #6b7276 inset,0 2px 0 #353b3e,0 4px 0 #30363a,0 6px 0 #2b3134,0 8px 0 #272c30,0 10px 0 #23282b,0 12px 0 #1f2427,0 30px 50px rgba(0,0,0,.55)}
+.cabinet svg{display:block;width:100%;height:auto;border-radius:6px;user-select:none;-webkit-user-select:none}
+.btn,.term{touch-action:none}
+.board-zoom{display:none;margin:8px 0}
+.board-zoom:has(input:checked){display:block}
+.board-zoom:has(input:checked)+.stage{overflow:auto}
+.board-zoom:has(input:checked)+.stage .cabinet{min-width:max(980px,140%);transform:none}
+@container(max-width:980px){
+  .board-zoom{display:block}
+}
+@media(max-width:700px){
+  .stage{overflow:auto}
+  .cabinet{transform:none;padding:6px}
+}
+.stitle{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:2px 4px 0}
+.stitle h2{font-family:var(--f-body);font-weight:500;font-size:20px;line-height:1.6;margin:0}
+.stitle p{margin:0;color:var(--muted);font-size:13px}
+.two-hand-help{margin:6px 4px 12px;padding:4px 10px;border-left:3px solid var(--accent);font-size:14px;line-height:1.7}
+.two-hand-help kbd{color:var(--live);font-size:1em}
+.two-hand-help small{display:block;color:var(--muted);font-size:13px}
+.wiring-check ol{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,215px),1fr));gap:8px 24px;margin:0;padding:0;list-style-position:inside}
+.wiring-check li{line-height:1.6;color:#d6d9d4}
+.wiring-check li::marker{color:var(--live)}
+.wiring-check strong{font-weight:500;color:var(--ink)}
+.wiring-check li>span{display:block}
+.wiring-check output{display:block;margin-top:10px;color:var(--live)}
+
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:var(--bench);border:1px solid var(--line);border-radius:12px;padding:14px 14px 12px;min-width:0}
+.card h3{font-family:var(--f-body);font-weight:500;font-size:16px;margin:0 0 8px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.card h3 span{font-family:var(--f-body);font-size:12px;color:var(--muted)}
+.diagram{background:#f3f0e7;border-radius:8px;overflow:auto;max-height:var(--diagram-height,72vh)}
+/* 横並びでは100%までの縮小を列幅で行い、100%を超えた分だけ図の中を拡大する。 */
+.diagram svg{display:block;width:calc(100% * max(1,var(--diagram-scale)));height:auto}
+@media(max-width:1000px){
+  .diagram{max-height:var(--diagram-height,240px)}
+  .diagram svg{width:calc(100% * var(--diagram-scale));min-width:calc(480px * var(--diagram-scale))}
+}
+.diagram-tools,.diagram-tools>div{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.diagram-tools{margin-bottom:10px}
+.diagram-tools button:disabled{opacity:.4;cursor:default}
+.hint{font-size:13px;line-height:1.7;color:#cfd3cf;margin:0;padding-left:1.2em}
+kbd{font-family:var(--f-mono);font-size:11px;background:#14181a;border:1px solid #3d474d;border-bottom-width:2px;border-radius:4px;padding:0 5px}
+.say{min-height:3.4em;font-size:14px;line-height:1.65;background:#15191b;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:9px 12px;margin-bottom:10px}
+.say.warn{border-left-color:#ff4b3a;background:#2a1513}
+.timers{display:grid;gap:8px}
+.timers label{display:grid;grid-template-columns:3em 1fr 4em;align-items:center;gap:10px;font-weight:500;font-size:13px}
+.timers input{accent-color:var(--accent);width:100%}
+.timers b{font-family:var(--f-mono);text-align:right}
+.notes{list-style:none;margin:0;padding:0;display:grid;gap:5px}
+@media(min-width:1001px){.notebook-card .notes{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px}}
+.notes li{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start;font-size:13px;line-height:1.5;color:var(--muted)}
+.notes li .st{width:20px;height:20px;border-radius:50%;border:2px dashed #4a545a;display:grid;place-items:center;font-size:11px;font-weight:700}
+.notes li.got{color:var(--ink)}
+.notes li.got .st{border:2px solid var(--accent);background:#3a2814;color:var(--live)}
+.notes li.new{animation:pop .8s ease}
+@keyframes pop{0%{background:#4a3214}100%{background:transparent}}
+.count{font-family:var(--f-mono);color:var(--live)}
+.note-files{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:12px}
+.note-files small{flex-basis:100%;color:var(--muted)}
+.note-files #noteStatus:empty{display:none}
+
+.pchips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.pchips button{font:inherit;font-size:12px;font-weight:500;background:#2b3236;border:1px solid #3d474d;color:var(--muted);border-radius:999px;padding:3px 10px;cursor:pointer}
+.pchips button[aria-pressed="true"]{background:#3a2a16;border-color:#b06c2a;color:#ffe0b8}
+.pview{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:700px){.pview{grid-template-columns:minmax(0,1fr)}}
+.pfig{background:#f3f0e7;border-radius:8px;padding:6px 6px 4px}
+.pfig svg{display:block;width:100%;height:auto;max-height:230px}
+.pstate{display:flex;justify-content:space-between;gap:8px;font-size:12px;font-weight:500;color:#3a2a10;padding:2px 4px}
+.pstate #pstate{color:#974500}
+.part-playback{display:flex;justify-content:flex-end;gap:6px;margin:5px 4px}.part-playback[hidden]{display:none}
+.part-playback button{font:inherit;font-size:12px;padding:5px 10px;background:#fffdf7;border:1px solid #b0a68f;border-radius:5px;color:#493d2d;cursor:pointer}
+.ps.paused *{animation-play-state:paused!important}
+.ptext p{margin:0 0 6px;font-size:13px;line-height:1.7;color:#d6d9d4}
+.ptext .tag{display:inline-block;font-size:11px;background:#3a2a16;color:#ffd9a8;border-radius:4px;padding:0 6px;margin-right:6px}
+.part-full{margin-left:auto;color:var(--live);font-size:13px;text-underline-offset:3px}
+.parts-only .wrap,.parts-only #partCard>h3{display:none}
+#partsPage{max-width:1100px;margin:0 auto;padding:clamp(12px,3vw,36px)}
+#partsPage header{justify-content:space-between;margin-bottom:20px}
+#partsPage h1{font-size:clamp(25px,4vw,36px);line-height:1.4}
+#partsPage .card{padding:clamp(12px,2.5vw,26px)}
+#partsPage .pchips{gap:6px;margin-bottom:18px}
+#partsPage .pchips button{padding:7px 12px;font-size:14px}
+#partsPage .pfig svg{max-height:430px}
+#partsPage .pstate{align-items:baseline;flex-wrap:wrap;font-size:14px}
+#partsPage #pname{font-size:18px}
+#partsPage .part-playback button{font-size:14px;padding:7px 12px}
+#partsPage .ptext p{font-size:15px;line-height:1.8;margin-bottom:12px}
+#partsPage footer{margin-top:16px;text-align:right;color:var(--muted)}
+#partsPage footer a{color:var(--ink);text-underline-offset:3px}
+#partTimerMode{margin:0 0 12px;color:var(--ink)}
+#partTimerMode select{margin-left:6px;padding:5px 8px;font:inherit}
+.ps text{font-family:var(--f-body);font-size:10.5px;fill:#4a3a20}
+.ps .tm{font-family:var(--f-mono);font-weight:700;fill:#2a2f33}
+.ps .ld{stroke:#b07a2a;stroke-width:1}.ps .ldot{fill:#b07a2a}
+.ps .lead{stroke:#555;stroke-width:2}.ps .spring{fill:none;stroke:#555;stroke-width:2}
+.ps .chart{fill:none;stroke:#2f6fd6;stroke-width:2.5}.ps .chart.k{stroke:#e46a00}
+.ps *{transition:transform .25s ease,opacity .25s,fill .25s}
+.ps.relay .arm{transform-origin:24px 60px}.ps.relay.on .arm{transform:rotate(9.2deg)}
+.ps.relay .return-spring{transform-origin:70px 15px}.ps.relay.on .return-spring{transform:scaleY(1.17)}
+.ps.relay.on .coil{fill:#ff9a3a}
+.ps:is(.relay,.thermal) .active-drawing,.ps:is(.relay,.thermal).on .rest-drawing{display:none}
+.ps:is(.relay,.thermal).on .active-drawing{display:inline}
+.ps.relay :is(.arm,.return-spring),.ps.thermal .trip{transition:none}
+.ps.on .mv{transform:translateY(14px)}
+.ps .rays{opacity:0}.ps.on .rays{opacity:1}.ps.on .lens{fill:#5dff6e}.ps.on .bulb{fill:#fffbd0}
+.ps.pb_a .return-spring,.ps.pb_b .return-spring{transform-origin:130px 134px}
+.ps.pb_a.on .return-spring,.ps.pb_b.on .return-spring{transform:scaleY(.70213)}
+@media (prefers-reduced-motion:no-preference){
+ .ps.bz.on .dia{animation:diaphragm-flex .26s ease-in-out infinite alternate}
+ @keyframes diaphragm-flex{from{d:path('M145 34 Q136 80 145 126')}to{d:path('M145 34 Q154 80 145 126')}}
+}
+.ps.sw .knob{transform-origin:54px 72px;transform:rotate(-45deg)}
+.ps.sw .cam{transform-origin:151px 72px;transform:rotate(-45deg)}
+.ps.sw.on .knob,.ps.sw.on .cam{transform:rotate(45deg)}
+.ps.sw.on .contact-carrier{transform:translateX(14.14px)}
+.ps.sw .return-spring{transform-origin:239px 72px}.ps.sw.on .return-spring{transform:scaleX(.655)}
+.ps.motor .rot,.ps.motor .field-arrow{transform-origin:100px 80px}
+.ps.motor.on .rot{animation:spin 1.5s linear infinite}
+.ps.motor .field-arrow{display:none}.ps.motor.on .field-arrow{display:inline;animation:spin 1.35s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ps.limit .obj{transition:transform .3s linear}.ps.limit.on .obj{transform:translateY(33px)}
+.ps.limit .lev,.ps.limit .plg{transition:transform .18s linear}.ps.limit .lev{transform-origin:144px 70px}
+.ps.limit.on .lev,.ps.limit.on .plg{transition-delay:.12s}.ps.limit.on .lev{transform:rotate(-22deg)}.ps.limit.on .plg{transform:translateY(7px)}
+.ps.float .water{transform-origin:62px 148px}.ps.float.on .water{transform:scaleY(1.91667)}
+.ps.float .fl{transform-origin:62px 80px}.ps.float.on .fl{transform:rotate(-24deg)}
+.ps.float .level-contact{transform-origin:24px 82px}.ps.float.on .level-contact{transform:rotate(36deg)}
+.ps.float.on .float-label{transform:translate(-1.7px,-44px)}
+.ps.photo .obj{transform:translateX(-70px);transition:transform .25s linear}.ps.photo.on .obj{transform:translateX(0)}
+.ps.photo .refl{opacity:0;transition:opacity 0s .09s}.ps.photo .out{transition:fill 0s .09s}
+.ps.photo.on .refl{opacity:1;transition-delay:.16s}.ps.photo.on .out{fill:#ff3b2b;transition-delay:.16s}
+.ps.thermal.on .heat{stroke:#d74625}
+.ps.thermal.on .trip{transform:translateX(10px)}
+.ps.sv.on .pl{transform:translateY(-12px)}.ps.sv .flow{opacity:0}.ps.sv.on .flow{opacity:1}
+.ps.sv .return-spring{transform-origin:130px 10px}.ps.sv.on .return-spring{transform:scaleY(.45455)}
+.ps.sv .stream{transition:d .25s ease}.ps.sv.on .stream{d:path('M39 118 H110 Q130 118 130 105 V101 Q130 93 141 93 H152 Q158 93 166 93 H220')}
+.ps.breaker{--current:#c65a08;--thermal-trip:#a8a398;--magnetic-trip:#a8a398;--release:#a8a398}
+.ps.breaker:is([data-state="1"],[data-state="3"]){--current:#666c70;--release:#724396}
+.ps.breaker[data-state="1"]{--thermal-trip:var(--release)}.ps.breaker[data-state="3"]{--magnetic-trip:var(--release)}
+.ps.breaker .switch-arm{transform-origin:46px 58px;transition:transform .18s ease}
+.ps.breaker:is([data-state="1"],[data-state="3"]) .switch-arm{transform:rotate(-31deg)}
+.ps.breaker .thermal-tip{transition:d .2s ease}.ps.breaker[data-state="1"] .thermal-tip{d:path('M102 58 Q127 58 141 68')}
+.ps.breaker .cause{display:none;fill:#68358b}.ps.breaker[data-state="1"] .heat-cause,.ps.breaker[data-state="3"] .magnet-cause{display:inline}
+.ps.breaker[data-state="1"] .thermal-tip{stroke:var(--release)}
+.ps.breaker .braid{transition:d .2s ease}.ps.breaker[data-state="1"] .braid{d:path('M141 68 Q151 68 151 63 T162 58')}
+.ps.breaker[data-state="3"] .iron-piece{transform:translateY(-5px)}
+.ps.breaker:is([data-state="1"],[data-state="3"]) .current-arrow{display:none}
+/* panel */
+.wire{cursor:pointer}
+.wire .hit{stroke:transparent;stroke-width:16;fill:none}
+.wire .ol{fill:none;stroke:#141414;stroke-width:6.8;stroke-linecap:round;opacity:.85}
+.wire .core{fill:none;stroke-width:4.4;stroke-linecap:round}
+.wire .shine{fill:none;stroke:#fff;stroke-width:1.2;stroke-linecap:round;opacity:.35;transform:translate(-.8px,-.8px)}
+.wire .halo{fill:none;stroke:var(--accent);stroke-width:12;stroke-linecap:round;opacity:0;transition:opacity .15s}
+.wire .flow{fill:none;stroke:#fff6c8;stroke-width:3;stroke-linecap:round;stroke-dasharray:2 13;opacity:0}
+.wire.hot .halo{opacity:.28}
+.wire.flowing .halo{opacity:.5}
+.wire.flowing .flow{opacity:1}
+.wire.cut .ol,.wire.cut .shine,.wire.cut .halo,.wire.cut .flow{opacity:0}
+.wire.cut .core{stroke:#666!important;stroke-dasharray:5 7;opacity:.55;stroke-width:2.5}
+.wire:hover .core,.wire.hl .core{filter:brightness(1.35)}
+.wire:hover .ol,.wire.hl .ol{stroke:#fff;opacity:.9}
+.term{cursor:crosshair}
+.term .ring{fill:none;stroke:var(--accent);stroke-width:2.5;opacity:0}
+.term:hover .ring{opacity:.7}
+.term.sel .ring{opacity:1;animation:blink .6s infinite alternate}
+.term text{paint-order:stroke;stroke-width:2.5px;stroke-linejoin:round}
+@keyframes blink{to{opacity:.2}}
+.btn{cursor:pointer}
+.btn .cap{transition:transform .09s ease-out;transform-box:fill-box;transform-origin:center}
+.btn.down .cap{transform:translateY(3px)}
+.brk{cursor:pointer}
+.lever{transition:transform .18s}
+.mov,.arm{transition:transform var(--dur,60ms) ease-in}
+.lbl{font-family:var(--f-mono);font-weight:700;fill:#2a2f33;pointer-events:none}
+.plate-t{font-family:var(--f-body);font-weight:500;fill:#222;pointer-events:none}
+.enter{animation:appear .3s ease-out both}
+@keyframes appear{from{opacity:.55}to{opacity:1}}
+.newtag{animation:newtag 4s ease forwards;pointer-events:none}
+@keyframes newtag{0%,70%{opacity:1}100%{opacity:0}}
+
+/* diagram */
+.dg .seg{fill:none;stroke:#2c2c2c;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.dg .seg.hot{stroke:#e46a00;stroke-width:3}
+.dg .seg.flowing{stroke:#ff5a00;stroke-width:3.6}
+.dg .seg.cut{stroke:#9a9a9a;stroke-dasharray:4 5}
+.dg .seg.hl{stroke:#0a7cff;stroke-width:4}
+.dg .hitd{fill:none;stroke:transparent;stroke-width:12;cursor:pointer}
+.dg text{font-family:var(--f-body);font-size:12px;fill:#222}
+.dg .mono{font-family:var(--f-mono);font-size:11.5px;fill:#59482e}
+.dg .blade{stroke:#2c2c2c;stroke-width:2.4;stroke-linecap:round}
+.dg .on .blade{stroke:#e46a00}
+@media (prefers-reduced-motion:reduce){.cabinet{transform:none}.notes li.new,.enter{animation:none}}
+
+.sponsor{display:flex;flex-wrap:wrap;align-items:center;gap:14px 24px;padding:18px 22px;border:1px solid #b06c2a;border-left:5px solid var(--accent);border-radius:12px;background:linear-gradient(110deg,#382919,#22282c 75%)}
+.sponsor-brand{display:flex;flex-direction:column;gap:3px}
+.sponsor-brand small{font-size:11px;color:#c9b69d}
+.sponsor-brand strong{font:500 27px var(--f-body);letter-spacing:.04em;color:#ffe0b8}
+.sponsor-copy{flex:1;min-width:200px}
+.sponsor-copy p{margin:0;color:var(--ink);font-weight:500;font-size:16px}
+.sponsor-copy small{display:block;margin-top:5px;color:#c5c7c2;line-height:1.6}
+.sponsor-cta{display:inline-block;padding:12px 16px;border-radius:8px;background:var(--accent);color:#211407;font-weight:500;text-decoration:none;text-align:center}
+.sponsor-cta:hover{background:#ffb054}
+.sponsor-cta:focus-visible{outline:3px solid #fff;outline-offset:3px}
+@media(max-width:600px){.sponsor{padding:16px;gap:12px}.sponsor-copy{flex-basis:100%;min-width:0}.sponsor-cta{width:100%}}
+</style>
+<link rel="stylesheet" href="../assets/lesson-language.css">
+<script defer src="../assets/english-cache.js"></script>
+<script defer src="../assets/lesson-terms.js"></script>
+<script defer src="../assets/lesson-language.js"></script>
+</head>
+<body>
+
+<main id="partsPage" hidden>
+  <header><h1>部品のしくみ</h1><select class="language-picker" data-language aria-label="Language / 言語" translate="no"><option value="ja" lang="en">Japanese</option><option value="en" lang="en">English</option></select><a class="back" href="../index.html">← メニューに戻る</a></header>
+  <footer>制作 <a href="https://fa-labo.com/">FA Labo ↗</a> · <a class="license-link" href="../LICENSE.txt" target="_blank" rel="noopener">教材・プログラムの利用条件</a></footer>
+</main>
+<div class="wrap">
+  <aside class="sponsor" aria-label="制作元 FA Labo のご案内">
+    <div class="sponsor-brand"><small>この教材の制作元</small><strong>FA Labo</strong></div>
+    <div class="sponsor-copy"><p>PLC更新・設備改修をお考えの方へ</p><small>PLC更新・制御盤改造・HMI/SCADA に対応。<br>現状調査から設計・現場の試運転までご相談いただけます。</small></div>
+    <a class="sponsor-cta" href="https://fa-labo.com/">PLC更新・設備改修を相談する ↗</a>
+  </aside>
+  <header>
+    <h1 aria-label="カチッとリレー"><svg viewBox="0 0 340 58" style="display:block;height:46px;width:auto" aria-hidden="true">
+      <text x="0" y="44" style="font-size:36px;fill:var(--accent)">カチッと</text>
+      <g id="logoSpark" style="stroke:var(--live);stroke-width:3;stroke-linecap:round;transition:opacity .15s"><line x1="104" y1="10" x2="112" y2="2"/><line x1="116" y1="16" x2="128" y2="12"/><line x1="98" y1="6" x2="99" y2="-4"/></g>
+      <text x="150" y="44" style="font-size:36px;fill:var(--ink)">リレー</text>
+      <g style="stroke:var(--accent);stroke-width:4;stroke-linecap:round;fill:var(--accent)"><line x1="262" y1="32" x2="280" y2="32"/><circle cx="280" cy="32" r="4"/><line id="logoBlade" x1="280" y1="32" x2="306" y2="18" style="transition:all .06s"/><circle cx="310" cy="32" r="4"/><line x1="310" y1="32" x2="336" y2="32"/></g>
+    </svg></h1>
+    <div class="tools">
+      <select class="language-picker" data-language aria-label="Language / 言語" translate="no"><option value="ja" lang="en">Japanese</option><option value="en" lang="en">English</option></select>
+      <a class="back" id="backMenu" href="../index.html">← メニューに戻る</a>
+      <button class="t" id="slow" aria-pressed="false">ゆっくり動作</button>
+      <button class="t" id="snd" aria-pressed="true">音 ON</button>
+      <button class="t" id="reset">お手本に戻す</button>
+    </div>
+  </header>
+  <nav class="stages" id="tabs" aria-label="お手本の面"></nav>
+
+  <div class="stitle"><h2 id="stName"></h2><p id="stSub"></p></div>
+  <p class="two-hand-help" id="twoHandHelp" hidden>PCはキーボードがおすすめ。数字キー <kbd>1</kbd> と <kbd>2</kbd> を両方長押しします。片方を離すと加圧が止まります。<small>タッチ操作は「左手」「右手」を2本指で長押し。</small></p>
+  <section class="card wiring-check" id="wiringCheck" aria-labelledby="wiringCheckTitle" hidden>
+    <h3 id="wiringCheckTitle">直したあとの正しい動作</h3>
+    <ol>
+      <li><strong>起動前（電源ON）</strong><span id="wiringIdleText">赤の停止灯（RL）だけが点き、ファンは止まっています。</span></li>
+      <li><strong>起動（PB1）を押して離す</strong><span>緑の運転灯（GL）が点き、赤が消えます。手を離しても緑は点いたままです。</span></li>
+      <li id="wiringTimerStep"><strong>起動から<span id="wiringDelay"></span>秒待つ</strong><span>タイマーT1の設定時間が経つと、ファンが回り始めます。</span></li>
+      <li><strong>停止（PB2）を押して離す</strong><span id="wiringStopText">緑が消えて赤が点き、ファンは減速して止まります。手を離しても停止したままです。</span></li>
+    </ol>
+    <output id="repairStatus" aria-live="polite"></output>
+  </section>
+  <div class="main">
+    <div class="card circuit-card">
+      <h3>展開接続図<span id="diagramHint">盤の線と同じ番号の線が光ります</span></h3>
+      <div class="diagram-tools">
+        <div><button class="t" id="diagramGrow" aria-controls="circuitDiagram">高さを広げる（全体表示）</button><button class="t" id="diagramShrink" aria-controls="circuitDiagram">高さを狭める −</button></div>
+        <div><button class="t" id="diagramZoomIn" aria-controls="circuitDiagram">拡大 ＋</button><button class="t" id="diagramZoomOut" aria-controls="circuitDiagram">縮小 −</button><output id="diagramZoom" aria-live="polite">100%</output></div>
+      </div>
+      <div class="diagram" id="circuitDiagram" tabindex="0" role="region" aria-label="展開接続図"><svg id="diag" class="dg" viewBox="0 0 480 400"></svg></div>
+      <output id="referenceEnds" hidden></output>
+    </div>
+    <div class="board-column">
+      <div class="say" id="say" role="status"></div>
+      <label class="board-zoom"><input type="checkbox" aria-controls="panel"> 盤を拡大して配線する（左右にスクロール）</label>
+      <div class="stage"><div class="cabinet"><svg id="panel" viewBox="0 0 980 650" aria-label="制御盤"></svg></div></div>
+    </div>
+    <div class="card" id="partCard">
+      <h3>部品のしくみ<span>盤の部品をクリックすると、その部品の中身が見られます</span><a class="part-full" id="partFull" href="?view=parts">部品のしくみだけを見る →</a></h3>
+      <div class="pchips" id="pchips" role="group" aria-label="部品を選ぶ"></div>
+      <div id="partTimerMode" hidden><label>タイマーの種類<select id="partDelay"><option value="on">オンディレイ</option><option value="off">オフディレイ</option></select></label></div>
+      <div class="pview">
+        <div class="pfig"><svg id="pstruct" viewBox="0 0 260 160" aria-label="部品の構造図"></svg><div class="pstate"><span id="pname"></span><span id="pstate"></span></div>
+          <div class="part-playback" id="partPlayback" hidden><button id="partPause" aria-controls="pstruct">一時停止</button><button id="partNext" aria-controls="pstruct">次の状態へ</button></div>
+        </div>
+        <div id="ptext" class="ptext"></div>
+      </div>
+    </div>
+    <div class="side">
+      <div class="card">
+        <h3>操作のしかた</h3>
+        <ul class="hint">
+          <li>ボタンはクリックで押す(長押しOK)。キー <kbd>1</kbd>〜<kbd>4</kbd> でも押せます</li>
+          <li><b>線をクリック</b>で抜く/戻す。<b>端子 → 端子</b>のクリックで線を足す</li>
+          <li>左上の<b>ブレーカー</b>で電源 ON/OFF</li>
+          <li><b>部品をクリック</b>すると、下に中のしくみが出ます</li>
+        </ul>
+      </div>
+      <div class="card" id="timerCard">
+        <h3>タイマー設定<span>ダイヤルの針が設定時間です</span></h3>
+        <div class="timers" id="timers"></div>
+      </div>
+
+    </div>
+    <div class="card notebook-card">
+      <h3>発見ノート <span class="count" id="cnt"></span></h3>
+      <ul class="notes" id="notes"></ul>
+      <div class="note-files">
+        <small id="noteSaveInfo">発見はこのブラウザーに自動保存されます。</small>
+        <button type="button" class="t" id="noteExport">記録を書き出す</button>
+        <button type="button" class="t" id="noteImport">記録を読み込む</button>
+        <button type="button" class="t" id="noteClear">記録をクリア</button>
+        <input id="noteFile" type="file" accept=".json,application/json" hidden>
+        <small id="noteStatus" role="status"></small>
+      </div>
+    </div>
+  </div>
+  <footer><a class="license-link" href="../LICENSE.txt" target="_blank" rel="noopener">教材・プログラムの利用条件</a></footer>
+</div>
+
+<script>if (window.self !== window.top && location.protocol !== 'file:') document.getElementById('backMenu').hidden = true;</script>
+<script>
+(()=>{
+const NS='http://www.w3.org/2000/svg';
+const $=id=>document.getElementById(id);
+const partsOnly=document.documentElement.classList.contains('parts-only');
+/* ===================== 部品のしくみ ===================== */
+const LB=(x,y,tx,ty,t,a)=>`<line x1="${x}" y1="${y}" x2="${tx}" y2="${ty}" class="ld"/><circle cx="${x}" cy="${y}" r="2.2" class="ldot"/><text x="${a==='end'?tx-3:tx+3}" y="${ty+3.5}" text-anchor="${a||'start'}">${t}</text>`;
+const ZIG=(x,y1,y2)=>{let d=`M${x} ${y1}`;const n=6,h=(y2-y1)/n;for(let i=1;i<=n;i++)d+=` L${x+(i%2?6:-6)} ${y1+h*i-h/2} L${x} ${y1+h*i}`;return `<path d="${d}" class="spring"/>`;};
+const PARTS={
+ relay:{name:'リレー',st:['無通電：COMとb側が導通','通電：COMとa側が導通'],
+  role:'小さな電気で、たくさんの接点をまとめて切り替える部品。リレー回路の主役です。',
+  how:'図は切替接点1組の例です。コイルに通電すると鉄心が<b>接極子</b>を引き寄せ、絶縁部分を介して可動接点を押します。<b>共通端子（COM）</b>の接続先がb側からa側に切り替わり、通電をやめると戻しばねでb側に戻ります。',
+  terms:'A1・A2はコイルの端子。13-14、23-24はa接点（励磁すると閉じる）、41-42はb接点（励磁すると開く）です。残る1組は通常33-34のa接点で、クイズ面だけ31-32のb接点です。',
+  svg:`<line x1="52" y1="14" x2="88" y2="14" stroke="#777" stroke-width="3"/>
+   <path d="M18 140 V63 H25 V133 H73 V140 Z" fill="#8b9094"/>
+   <rect class="coil" x="32" y="85" width="34" height="48" rx="4" fill="#c97a3a"/>
+   ${[0,1,2,3,4].map(i=>`<line x1="33" x2="65" y1="${89+i*9}" y2="${89+i*9}" stroke="#6c3410"/>`).join('')}
+   <rect x="42" y="68.2" width="14" height="16.8" fill="#8b9094"/>
+   <g class="return-spring">${ZIG(70,15,56)}</g>
+   <path d="M125 33 V53 M124 83 V101" stroke="#858b8e" stroke-width="4"/>
+   <g fill="#fff" stroke="#666"><circle cx="125" cy="32" r="3"/><circle cx="124" cy="102" r="3"/><circle cx="98" cy="101" r="3"/></g>
+   <g fill="none" stroke="#ad8521" stroke-width="2.5"><path class="rest-drawing" d="M98 98 Q105 79 94 60"/><path class="active-drawing" d="M98 98 Q105 86 93.1 71.2"/></g>
+   <text x="98" y="121" text-anchor="middle" class="tm">COM</text>
+   <g class="arm">
+    <rect x="19" y="56" width="69" height="7" rx="2" fill="#a9aeb2" stroke="#6f7478"/>
+    <rect x="87" y="56" width="7" height="7" fill="#e6e0ca" stroke="#8e8772"/>
+    <path d="M94 60 H125" stroke="#ad8521" stroke-width="3"/>
+    <circle class="moving-contact" cx="125" cy="60" r="4" fill="#ddd" stroke="#777"/>
+   </g>
+   <circle cx="24" cy="60" r="3" fill="#444"/>
+   <circle class="nc-contact" cx="125" cy="53" r="3" fill="#eee" stroke="#777"/>
+   <circle class="no-contact" cx="123.7" cy="83.15" r="3" fill="#eee" stroke="#777"/>
+   <path d="M38 133 V143 M60 133 V143" class="lead"/><text x="32" y="159" class="tm">A1</text><text x="54" y="159" class="tm">A2</text>
+   <text x="29" y="22" text-anchor="middle">接極子</text><text x="29" y="41" text-anchor="middle">（鉄片）</text>
+   <line x1="30" y1="60" x2="30" y2="48" class="ld"/><circle cx="30" cy="60" r="2.2" class="ldot"/>
+   ${LB(74.5,17.8,164,16,'戻しばね')}
+   ${LB(125,53,164,40,'b側の固定接点')}${LB(123.7,83.15,164,90,'a側の固定接点')}
+   <g class="rest-drawing">${LB(125,60,164,65,'可動接点')}</g>
+   <g class="active-drawing">${LB(123.7,76.1,164,65,'可動接点')}</g>
+   ${LB(49,75,68,87,'鉄心')}${LB(62,127,164,145,'コイル')}`},
+ timer:{name:'タイマー',st:null,
+  role:'入力と接点の切り替わりの間に、設定した長さの時間差をつくる部品。',
+  how:'<b>オンディレイ</b>は電源を入れてから設定時間後にa接点が閉じます。<b>電源オフディレイ</b>は電源を入れるとすぐ閉じます。電源を切ったあとも内部に蓄えた電気で時間を数え、設定時間後に開きます。波形が高い区間は、上が電源「入」、下が接点「閉」です。',
+  terms:'この盤ではA1・A2が電源端子です。15が共通で、15–18がa接点、15–16がb接点です。もう1組は25が共通で、25–28がa接点、25–26がb接点です。',
+  svg:off=>{
+   const c=off?'M130 60 L140 60 L140 36 L190 36 L190 60 L252 60':'M130 60 L140 60 L140 36 L215 36 L215 60 L252 60';
+   const k=off?'M130 120 L140 120 L140 96 L230 96 L230 120 L252 120':'M130 120 L180 120 L180 96 L215 96 L215 120 L252 120';
+   const ar=off?[190,230]:[140,180];
+   return `<rect x="8" y="16" width="104" height="128" rx="8" fill="#e8e2d2" stroke="#9a937f"/>
+   <text x="38" y="35" text-anchor="middle">時間設定</text><circle cx="87" cy="31" r="10" fill="#fff" stroke="#7d7666"/><path d="M87 31 l6 -6" stroke="#b2261c" stroke-width="2"/>
+   <rect x="16" y="50" width="88" height="25" rx="3" fill="#364144"/><text x="60" y="66" text-anchor="middle" style="fill:#fff">計時回路</text>
+   <path d="M60 77 V95 m-4 -5 l4 5 4 -5" fill="none" stroke="#766b50" stroke-width="2"/>
+   <rect x="16" y="99" width="88" height="28" rx="3" fill="#f6efda" stroke="#9a937f"/><text x="60" y="117" text-anchor="middle">出力リレー</text>
+   <path d="M${ar[0]} 60 V68 M${ar[0]} 93 V136 M${ar[1]} 120 V136" fill="none" stroke="#92918a" stroke-dasharray="2 3"/>
+   <text x="128" y="26">電源（A1・A2）</text><path d="${c}" class="chart"/>
+   <text x="128" y="85">a接点（${off?'オフ':'オン'}ディレイ）</text><path d="${k}" class="chart k"/>
+   <line x1="${ar[0]}" y1="136" x2="${ar[1]}" y2="136" class="ld" marker-start="url(#mA)" marker-end="url(#mA)"/><text x="${(ar[0]+ar[1])/2}" y="152" text-anchor="middle">設定時間</text>`;}},
+ pb_a:{name:'押しボタン(a接点)',st:['離している','押している'],
+  role:'a接点（NO）は、離していると開き、押すと閉じる接点です。この盤の起動ボタンに使っています。',
+  how:'ふだんは<b>ばね</b>に押し上げられて、<b>可動接点</b>が固定接点から離れています。押すと可動接点が下がって2つの固定接点の<b>橋渡し</b>になり、電気が通ります。離すとばねで戻ります。',
+  terms:'この盤の1・2が接点の両端です。実物ではNOなどの接点表示と端子番号で確認します。',
+  svg:`<g class="mv"><rect x="95" y="12" width="70" height="22" rx="6" fill="#2f9e43"/><rect x="125" y="34" width="10" height="46" fill="#bbb"/><rect x="86" y="80" width="88" height="7" rx="2" fill="#c9c9c9" stroke="#777"/>
+   ${LB(160,22,200,16,'ボタン')}${LB(170,84,210,62,'可動接点')}</g>
+   <g class="return-spring">${ZIG(130,87,128)}<path d="M130 128 V134" class="spring"/></g><rect x="110" y="134" width="40" height="5" fill="#777"/>
+   <rect x="66" y="101" width="34" height="6" fill="#9ba0a3"/><rect x="160" y="101" width="34" height="6" fill="#9ba0a3"/>
+   <line x1="70" y1="107" x2="70" y2="150" class="lead"/><line x1="190" y1="107" x2="190" y2="150" class="lead"/><text x="60" y="152" class="tm">1</text><text x="196" y="152" class="tm">2</text>
+   ${LB(188,104,210,100,'固定接点')}${LB(130,132,149,147,'ばね')}`},
+ pb_b:{name:'押しボタン(b接点)',st:['離している','押している'],
+  role:'b接点（NC）は、離していると閉じ、押すと開く接点です。この盤の停止ボタンに使っています。',
+  how:'ふだんは<b>ばね</b>が<b>可動接点</b>を2つの固定接点に押しつけ、端子どうしをつないでいます。ボタンを押すと可動接点が下がり、電流の通り道が開きます。',
+  terms:'この盤の1・2が接点の両端です。実物ではNCなどの接点表示と端子番号で確認します。',
+  svg:`<g class="mv"><rect x="95" y="12" width="70" height="22" rx="6" fill="#c8281c"/><rect x="125" y="34" width="10" height="46" fill="#bbb"/><rect x="86" y="80" width="88" height="7" rx="2" fill="#c9c9c9" stroke="#777"/>
+   ${LB(160,22,200,16,'ボタン')}${LB(170,84,210,97,'可動接点')}</g>
+   <g class="return-spring">${ZIG(130,87,128)}<path d="M130 128 V134" class="spring"/></g><rect x="110" y="134" width="40" height="5" fill="#777"/>
+   <rect x="66" y="74" width="34" height="6" fill="#9ba0a3"/><rect x="160" y="74" width="34" height="6" fill="#9ba0a3"/>
+   <line x1="70" y1="74" x2="70" y2="43" class="lead"/><line x1="190" y1="74" x2="190" y2="43" class="lead"/><text x="60" y="47" class="tm">1</text><text x="196" y="47" class="tm">2</text>
+   ${LB(188,77,210,77,'固定接点')}${LB(130,132,149,147,'ばね')}`},
+ lamp:{name:'表示灯(ランプ)',st:['電気なし','電気あり'],
+  role:'電気が来ているかどうかを光で知らせる部品。運転中、停止中などの表示に使います。',
+  how:'図は<b>DC24V用LED表示灯</b>の一例です。内部の<b>抵抗</b>をLEDと直列につなぎ、流れる電流を抑えます。LEDが光ると、手前のレンズを通して見えます。',
+  terms:'この盤ではX1とX2が電源端子です。実物は定格電圧と端子の極性表示を確認します。',
+  svg:`<g class="rays">${[0,1,2,3,4].map(i=>`<line x1="${130+Math.cos((200+i*35)*Math.PI/180)*62}" y1="${80+Math.sin((200+i*35)*Math.PI/180)*62}" x2="${130+Math.cos((200+i*35)*Math.PI/180)*78}" y2="${80+Math.sin((200+i*35)*Math.PI/180)*78}" stroke="#3ad35a" stroke-width="4" stroke-linecap="round"/>`).join('')}</g>
+   <path d="M80 86 A50 50 0 0 1 180 86 Z" class="lens" fill="#5f7d62" stroke="#333"/>
+   <rect x="74" y="86" width="112" height="34" rx="3" fill="#d9dbd7" stroke="#777"/>
+   <path d="M100 148 V111 M100 93 V89 H124 V76 M136 76 V95 H160 V148" fill="none" class="lead"/>
+   <rect x="96" y="93" width="8" height="18" fill="#dbb875" stroke="#6e552c"/>
+   <circle cx="130" cy="66" r="12" class="bulb" fill="#ddd" stroke="#888"/>
+   <text x="94" y="150" class="tm" text-anchor="end">X1</text><text x="166" y="150" class="tm">X2</text>
+   ${LB(98,58,43,41,'レンズ','end')}${LB(140,62,198,43,'LED')}${LB(100,102,68,115,'電流制限抵抗','end')}`},
+ bz:{name:'ブザー',st:['電気なし','電気あり'],
+  role:'音で知らせる部品。異常や警報のときに鳴らします。',
+  how:'図は<b>発振回路を内蔵した電磁式</b>です。直流電源を入れると、内部の回路がコイルの電流を周期的に変えます。磁石とコイルが振動板を引く力が強弱を繰り返し、板が震えて音が出ます。',
+  terms:'この盤では1と2がブザーの電源端子です。実物は定格電圧と極性に合わせてつなぎます。',
+  svg:`<rect x="58" y="31" width="84" height="96" rx="8" fill="#e1e1d9" stroke="#777"/>
+   <path d="M133 44 H73 V69 H136" fill="none" stroke="#828b90" stroke-width="6"/>
+   <rect x="87" y="39" width="25" height="10" fill="#995b62" stroke="#70464b"/>
+   <path d="M88 148 V114 M112 148 V114 M88 96 V83 H96 V79 M114 96 V79" fill="none" class="lead"/>
+   <rect x="90" y="59" width="33" height="20" rx="2" fill="#c97a3a" stroke="#805027"/>
+   <path d="M96 59 l4 20 m2 -20 l4 20 m2 -20 l4 20 m2 -20 l4 20" fill="none" stroke="#805027" stroke-width="1.5"/>
+   <rect x="75" y="96" width="51" height="18" rx="2" fill="#537873" stroke="#385455"/>
+   <path class="dia" d="M145 34 Q145 80 145 126" stroke="#9ba2a7" stroke-width="5" fill="none"/>
+   <g class="rays">${[0,1,2].map(i=>`<path d="M${160+i*14} 50 Q${176+i*14} 80 ${160+i*14} 110" fill="none" stroke="#ff8a1f" stroke-width="3"/>`).join('')}</g>
+   <text x="78" y="152" class="tm">1</text><text x="116" y="152" class="tm">2</text>
+   ${LB(95,44,48,32,'磁石','end')}${LB(99,67,48,70,'コイル','end')}${LB(80,104,52,118,'発振回路','end')}${LB(145,34,198,22,'振動板')}`},
+ sw:{name:'切替スイッチ(セレクタ)',st:['左に回した（開）','右に回した（閉）'],
+  role:'回して操作するスイッチです。この盤は、手を離しても選んだ位置を保つ2位置のタイプです。',
+  how:'左はつまみの正面、右は中のしくみです。つまみと一緒に<b>カム</b>が回ります。右に回すとカムが押し棒を押し、可動接点が端子1と2を橋渡しします。左に戻すとばねが押し棒を戻し、接点が開きます。',
+  terms:'1・2:接点の端子。右に回すと1と2がつながります。',
+  svg:`<circle cx="54" cy="72" r="34" fill="#222"/><g class="knob"><rect x="47" y="42" width="14" height="60" rx="6" fill="#ececec" stroke="#555"/><rect x="52" y="46" width="4" height="14" fill="#d8352a"/></g>
+   <text x="54" y="126" text-anchor="middle">つまみ（正面）</text>
+   <g class="cam"><circle cx="151" cy="62" r="23" fill="#9aa0a4" stroke="#555"/><circle cx="151" cy="72" r="3" fill="#555"/></g>
+   <g class="contact-carrier"><rect x="170" y="69" width="28" height="6" rx="2" fill="#b6a78c"/><circle cx="170" cy="72" r="4" fill="#ececec" stroke="#555"/>
+     <path d="M200 56 H197 V88 H200" fill="none" stroke="#ad8431" stroke-width="4"/><circle cx="200" cy="56" r="3" fill="#d9b84a"/><circle cx="200" cy="88" r="3" fill="#d9b84a"/></g>
+   <path class="spring return-spring" d="M198 72 h4 l3 -4 5 8 5 -8 5 8 5 -8 5 8 3 -4 h6"/><path d="M239 66 V78" class="lead"/>
+   <path d="M220.14 56 H240 M220.14 88 H240" class="lead"/><circle cx="220.14" cy="56" r="3" fill="#666"/><circle cx="220.14" cy="88" r="3" fill="#666"/>
+   <text x="245" y="60" class="tm">1</text><text x="245" y="92" class="tm">2</text>
+   ${LB(151,84,144,110,'カム','end')}${LB(220.14,88,226,112,'接点')}`},
+ emg:{name:'非常停止ボタン',st:['ロック解除','押してロック'],
+  role:'危険時に機械を止めます。停止後は原因を取り除き、安全を確認してロックを解除します。実機の再始動には別の起動操作が必要です。',
+  how:'赤いボタンを押す力が<b>軸</b>を介して停止用のb接点を機械的に開きます（<b>直接開路動作</b>）。<b>ロック機構</b>がその位置を保ちます。この形ではボタンを回して解除します。',
+  terms:'この盤では1–2が停止用のb接点、3–4が警報用のa接点です。2組の接点には同じ軸の動きが伝わりますが、電流の通り道は別々です。',
+  svg:`<g class="mv"><path d="M70 30 Q130 -6 190 30 L190 36 L70 36 Z" fill="#c8281c" stroke="#7a120c"/><rect x="124" y="36" width="12" height="87" fill="#dbcfb6" stroke="#a49578"/>
+   <rect x="92" y="82" width="76" height="6" fill="#c9c9c9" stroke="#777"/><rect x="92" y="117" width="76" height="6" fill="#c9c9c9" stroke="#777"/>
+   <path d="M136 46 H151 V48 L136 56 Z" fill="#555"/>${LB(170,24,199,16,'キノコ形ボタン')}${LB(130,103,66,107,'押し軸','end')}</g>
+   <path d="M148 60 V57 L174 54 V60 Z" fill="#555"/>
+   <rect x="72" y="76" width="26" height="6" fill="#9ba0a3"/><rect x="162" y="76" width="26" height="6" fill="#9ba0a3"/>
+   <rect x="72" y="137" width="26" height="6" fill="#9ba0a3"/><rect x="162" y="137" width="26" height="6" fill="#9ba0a3"/>
+   ${LB(169,57,199,53,'ロック機構')}${LB(183,79,199,83,'b接点 (1–2)')}${LB(183,140,199,140,'a接点 (3–4)')}`},
+ motor:{name:'モーター',st:['電気なし','電気あり'],
+  role:'電気の力で回る部品。ファン、ポンプ、コンベア、シャッター、プレス機など、動く機械の多くはモーターで動いています。',
+  how:'図は誘導モーターの断面です。外側の固定子のコイルが<b>回転磁界</b>をつくると、内側の回転子の導体に電流が誘導され、回す力が生じます。負荷を動かすとき、回転子は矢印が示す磁界と同じ向きに、少し遅れて回ります。',
+  terms:'盤の図ではファンなどの入力を1・2、正逆転装置の指令入力をF（正転）・R（逆転）・C（共通）で表しています。',
+  svg:`<circle cx="100" cy="80" r="62" fill="#cfd6db" stroke="#555" stroke-width="3"/>
+   ${[0,90,180,270].map(a=>`<rect x="92" y="22" width="16" height="22" rx="3" fill="#c97a3a" transform="rotate(${a} 100 80)"/>`).join('')}
+   <circle cx="100" cy="80" r="33" fill="none" stroke="#61819b" stroke-dasharray="2 4"/>
+   <g class="field-arrow"><path d="M76.7 56.7 A33 33 0 0 1 128.6 63.5" fill="none" stroke="#1c588a" stroke-width="2.5"/><path d="M131 67 l-7 -4 6 -3 Z" fill="#1c588a"/></g>
+   <g class="rot"><circle cx="100" cy="80" r="28" fill="#7b858b" stroke="#333"/>
+    ${[0,45,90,135,180,225,270,315].map(a=>`<circle cx="100" cy="58" r="2.8" fill="#d1ccc1" transform="rotate(${a} 100 80)"/>`).join('')}
+    <path d="M100 80 H116" stroke="#ffb04b" stroke-width="3"/></g><circle cx="100" cy="80" r="6" fill="#222"/>
+   ${LB(103,32,165,24,'固定子のコイル')}${LB(128,62,165,52,'回転磁界の軌跡')}${LB(124,79,165,81,'回転子')}${LB(100,80,165,118,'軸（力を伝える）')}`},
+ limit:{name:'リミットスイッチ',st:['何も当たっていない','物が当たった'],
+  role:'機械が決まった位置まで来たことを知らせるスイッチ。人の代わりに<b>機械自身が押す</b>ボタンです。',
+  how:'動く物が<b>ローラー付きレバー</b>に当たるとレバーが倒れ、中の<b>プランジャ</b>を押して接点を切り替えます。シャッターでは上限と下限に付けて、端で自動的に止めています。',
+  terms:'上限LS1は盤のL1・L1、下限LS2はL2・L2につながります。どちらも、端でレバーが押されると開くb接点です。',
+  svg:`<g class="obj"><rect x="52" y="7" width="61" height="16" rx="2" fill="#747b80"/><text x="82.5" y="19" text-anchor="middle" style="fill:white">シャッター</text></g>
+   <path d="M139 76 V70 Q140 63 146 66 L150 76 Z" fill="#83888b" stroke="#555"/>
+   <rect x="103" y="76" width="70" height="51" rx="4" fill="#e2b31c" stroke="#6a4d05"/>
+   <path d="M107 82 H114 V91 M167 82 H142 V91" fill="none" stroke="#555" stroke-width="2"/>
+   <circle cx="114" cy="91" r="3" fill="#555"/><circle cx="142" cy="91" r="3" fill="#555"/>
+   <g class="plg"><rect x="125" y="61" width="6" height="33" fill="#adb1b3" stroke="#666"/><rect x="110" y="94" width="36" height="5" rx="1" fill="#d9c185" stroke="#775e2d"/></g>
+   <g class="lev"><line x1="144" y1="70" x2="96" y2="44" stroke="#333" stroke-width="5" stroke-linecap="round"/><circle cx="96" cy="44" r="8" fill="#777" stroke="#333"/></g>
+   <circle cx="144" cy="70" r="4" fill="#555"/>
+   ${LB(144,70,150,22,'ローラー付きレバー')}${LB(128,80,193,61,'プランジャ')}${LB(142,91,193,101,'接点')}`},
+ float:{name:'フロートスイッチ',st:['水位が低い','水位が高い'],
+  role:'水の高さで切り替わるスイッチ。タンクの<b>減水</b>や<b>満水</b>を知らせます。',
+  how:'図は横取付の磁石式です。水面が上がると浮きが持ち上がり、アームの反対側の<b>磁石</b>が下がります。磁石の動きが隔壁の向こうのスイッチに伝わり、接点が切り替わります。',
+  terms:'この盤のF1・F1は減水で閉じるFS1の端子です。図は満水で開くFS2で、盤ではF2・F2につながります。',
+  svg:`<rect x="60" y="20" width="170" height="130" fill="#eef4f8" stroke="#555" stroke-width="2"/>
+   <rect class="water" x="62" y="100" width="166" height="48" fill="#5fa8e8" opacity=".8"/>
+   <rect x="20" y="62" width="42" height="36" rx="3" fill="#2c3135"/><circle cx="62" cy="80" r="4" fill="#333"/>
+   <path d="M27 67 H39 V72" fill="none" stroke="#c4c9cc" stroke-width="2"/><circle cx="39" cy="72" r="3" fill="#eee"/>
+   <path d="M46 64 V96" stroke="#c4c9cc" stroke-width="1.5"/>
+   <g class="fl"><line x1="52" y1="78" x2="160" y2="96" stroke="#555" stroke-width="3"/><circle cx="166" cy="98" r="14" fill="#ffb347" stroke="#7a4a00"/>
+    <rect x="49" y="75" width="8" height="6" rx="1" fill="#d9855d"/><path d="M53 75 V81" stroke="#f5d6bc"/></g>
+   <g class="level-contact"><path d="M24 82 L39 77" stroke="#d9b84a" stroke-width="2"/><circle cx="39" cy="77" r="2" fill="#d9b84a"/></g>
+   <g class="float-label">${LB(174,96,235,88,'浮き')}</g>
+   <line x1="39" y1="72" x2="30" y2="112" class="ld"/><circle cx="39" cy="72" r="2.2" class="ldot"/>
+   <text x="30" y="126" text-anchor="middle">中の接点</text>${LB(202,128,235,134,'水')}${LB(53,80,42,44,'磁石','end')}`},
+ photo:{name:'光電センサ',st:['荷物なし','荷物あり'],
+  role:'光を使って、物があるかどうかを<b>さわらずに</b>見つけるセンサー。',
+  how:'この<b>拡散反射形</b>は、投光部から出た光の一部が荷物から受光部に戻ると検出します。この盤は<b>入光時ON</b>の設定で、検出すると表示灯が点きます。',
+  terms:'この盤では出力を2組の接点で表します。荷物を検出するとa・aが閉じ、b・bが開きます。実機には共通端子付きのリレー出力や、NPN・PNPのトランジスタ出力があります。',
+  svg:`<rect x="90" y="16" width="90" height="34" rx="4" fill="#2c3135"/><circle cx="112" cy="50" r="7" fill="#ff5b3e"/><circle cx="158" cy="50" r="7" fill="#7aa0c0"/>
+   <circle class="out" cx="168" cy="26" r="4" fill="#552"/>
+   <line x1="112" y1="56" x2="112" y2="132" stroke="#ff3b2b" stroke-width="2" stroke-dasharray="4 4"/>
+   <line class="refl" x1="112" y1="104" x2="158" y2="56" stroke="#ff3b2b" stroke-width="2" stroke-dasharray="4 4"/>
+   <rect x="20" y="132" width="230" height="10" rx="5" fill="#2b2f32"/>
+   <g class="obj"><rect x="94" y="104" width="44" height="28" fill="#c89b62" stroke="#7a5a30"/></g>
+   ${LB(108,50,36,78,'投光部','end')}${LB(162,46,202,67,'受光部')}${LB(168,26,194,20,'出力表示灯')}`},
+ thermal:{name:'サーマルリレー',st:['通常（95–96が閉）','トリップ（97–98が閉）'],
+  role:'モーターに過大な電流が流れ続けたことを検出し、制御回路に伝える保護部品です。',
+  how:'左は主回路1相分の例です。モーターの電流がヒーターを温め、過負荷が続くと<b>バイメタル</b>が曲がってトリップ棒を押します。その動きで右の補助接点が切り替わります。この盤は、冷めてからリセットする手動復帰式です。',
+  terms:'一般的な回路では、95–96（b接点）が開いて電磁接触器のコイルが切れ、接触器の主接点がモーターへの給電を止めます。97–98（a接点）が閉じると警報を出せます。',
+  svg:`<rect x="24" y="139" width="70" height="8" fill="#777"/>
+   <g class="rest-drawing"><path d="M55 139 V44 M61 139 V44" fill="none" stroke="#8e979d" stroke-width="6"/><path d="M55 139 V44" stroke="#dd831f" stroke-width="6"/></g>
+   <g class="active-drawing"><path d="M61 139 Q61 84 75 44" fill="none" stroke="#8e979d" stroke-width="6"/><path d="M55 139 Q55 84 69 44" fill="none" stroke="#dd831f" stroke-width="6"/></g>
+   <path d="M17 77 H43 M17 118 H44" fill="none" stroke="#777" stroke-width="2.5"/>
+   <g fill="#fff" stroke="#666"><circle cx="14" cy="77" r="3"/><circle cx="14" cy="118" r="3"/></g>
+   <text x="8" y="66">電源側</text><text x="4" y="135">負荷側</text>
+   <path class="heat" d="M43 77 L72 83 L44 90 L72 97 L44 104 L72 111 L44 118" fill="none" stroke="#a95a23" stroke-width="3"/>
+   <rect x="143" y="26" width="111" height="97" rx="4" fill="#e8e2d2" stroke="#9a937f"/>
+   <g class="trip"><rect x="66" y="40" width="80" height="8" fill="#bbb" stroke="#777"/></g>
+   <g fill="none" stroke="#777" stroke-dasharray="3 2">
+    <path class="rest-drawing" d="M146 44 H152 V52 H175 M152 52 V93 H175"/>
+    <path class="active-drawing" d="M156 44 H157 V52 H181 M157 52 V93 H181"/>
+   </g>
+   <path d="M160 47 H169 M191 88 H203" stroke="#777" stroke-width="3"/>
+   <circle class="nc-contact" cx="169" cy="47" r="3" fill="#eee" stroke="#777"/><circle class="no-contact" cx="191" cy="88" r="3" fill="#eee" stroke="#777"/>
+   ${[false,true].map(tripped=>`<g class="${tripped?'active':'rest'}-drawing">${[47,88].map(y=>`<path d="M175 ${y+18} Q175 ${y+11} ${tripped?185:175} ${y}" fill="none" stroke="#a48428" stroke-width="3"/><circle class="moving-contact" cx="${tripped?185:175}" cy="${y}" r="3" fill="#ddd" stroke="#777"/>`).join('')}</g>`).join('')}
+   <text x="207" y="51" class="tm">95–96</text><text x="207" y="92" class="tm">97–98</text>
+   <circle cx="224" cy="138" r="8" fill="#1f4f8a"/><text x="224" y="158" text-anchor="middle">リセット</text>
+   <text x="28" y="20">主回路</text><text x="173" y="20">補助接点</text>
+   ${LB(69,84,90,81,'ヒーター')}${LB(60,134,102,149,'バイメタル')}${LB(110,44,99,17,'トリップ棒')}`},
+ sv:{name:'電磁弁',st:['電気なし(閉)','電気あり(開)'],
+  role:'このタンクでは水を出す側の蛇口を、<b>直動式の2ポート電磁弁</b>で開け閉めします。',
+  how:'<b>コイル</b>に電気が入ると電磁石になり、鉄の<b>プランジャ</b>を引き上げて<b>弁</b>が開き、水が流れます。電気が切れるとばねで閉じます。',
+  terms:'盤のV・Vはコイルに電気を入れる2端子です。この弁は通電すると開く常時閉（NC）形です。',
+  svg:`<path d="M20 105 H92 V78 H160 V82 H240 V102 H160 V132 H20 Z" fill="#bed6e6" stroke="#555"/>
+   <text x="24" y="98">出口</text><text x="237" y="76" text-anchor="end">入口</text>
+   <path d="M92 99 H121 V105 H92 Z M139 99 H160 V105 H139 Z" fill="#777f84" stroke="#555"/>
+   <rect x="104" y="20" width="52" height="56" rx="4" fill="#c97a3a" stroke="#6c3410"/>
+   <path d="M119 9 H141" stroke="#555" stroke-width="2"/><path class="return-spring" d="M130 10 V12 L124 14 L136 17 L124 20 L136 23 L124 26 L130 29 V32" fill="none" stroke="#555" stroke-width="1.5"/>
+   <g class="flow" fill="none" stroke="#1f6fd6" stroke-width="2"><path class="stream" d="M39 118 H110 Q130 118 130 105 V101 Q130 99 141 99 H152 Q158 99 166 93 H220"/><path d="M46 114 l-6 4 6 4 M215 89 l-6 4 6 4"/></g>
+   <g class="pl"><rect x="125" y="32" width="10" height="61" fill="#8b9094"/><rect x="116" y="91" width="28" height="8" fill="#555"/>
+     ${LB(142,94,188,66,'弁体')}</g>
+   ${LB(150,40,196,28,'コイル')}${LB(130,59,67,58,'プランジャ','end')}${LB(40,123,40,147,'水の通り道')}${LB(130,10,89,13,'ばね','end')}`},
+ breaker:{name:'ブレーカー',st:['通常（通電）','過負荷で遮断','手動復帰・再投入','短絡で遮断'],
+  role:'電流が大きくなりすぎると接点を開き、配線を守ります。図は<b>熱動電磁式</b>の動作を順に示しています。',
+  how:'<b>過負荷が続く</b>と、電流の熱でバイメタルが曲がります。<b>短絡で非常に大きな電流が流れる</b>と、電磁石が鉄片を直ちに引き寄せます。どちらも同じ<b>引き外し機構</b>を作動させ、ばねの力で接点を開きます。',
+  terms:'盤の+24Vを電源側に、リレーやランプに向かう線を負荷側につなぎます。遮断の原因を取り除いて手動で復帰すると、回路を再び使えます。',
+  svg:`<rect x="5" y="9" width="250" height="118" rx="8" fill="#eae7dd" stroke="#bdb6a7"/>
+   <g text-anchor="middle"><text x="24" y="39">電源側</text><text x="68" y="23">接点</text><text x="124" y="23">バイメタル</text><text x="184" y="23">電磁石</text><text x="234" y="39">負荷側</text>
+    <text class="cause heat-cause" x="124" y="42">熱で曲がる</text><text class="cause magnet-cause" x="184" y="42">鉄片を引く</text></g>
+   <g fill="none" stroke="var(--current)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 58 H46 M86 58 H102"/><path class="thermal-tip" d="M102 58 Q127 58 141 58" stroke-width="6"/>
+    <path class="braid" d="M141 58 Q151 52 151 57 T162 58" stroke-width="2"/>
+    <path d="M162 58 Q167 36 172 58 Q177 36 182 58 Q187 36 192 58 Q197 36 202 58 H245"/>
+    <path class="current-arrow" d="M27 54 l6 4 -6 4 M226 54 l6 4 -6 4" stroke-width="2"/>
+    <g class="switch-arm"><path d="M46 58 H80"/><circle class="moving-contact" cx="80" cy="58" r="3" fill="var(--current)" stroke="none"/></g>
+    <circle class="fixed-contact" cx="86" cy="58" r="3" fill="var(--current)" stroke="none"/>
+   </g>
+   <g fill="#f5f1e7" stroke="#565c60" stroke-width="1.5"><circle cx="15" cy="58" r="3.5"/><circle cx="245" cy="58" r="3.5"/><circle cx="46" cy="58" r="2.4"/></g>
+   <path d="M165 64 H199" stroke="#555b61" stroke-width="3"/><path class="iron-piece" d="M173 73 H191" stroke="var(--magnetic-trip)" stroke-width="4"/>
+   <g fill="none" stroke-width="1.8" stroke-linejoin="round">
+    <g stroke="var(--thermal-trip)"><path d="M141 71 V90 H98" stroke-dasharray="4 3"/><path d="M102 87 l-5 3 5 3"/></g>
+    <g stroke="var(--magnetic-trip)"><path d="M182 76 V106 H98" stroke-dasharray="4 3"/><path d="M102 103 l-5 3 5 3"/></g>
+    <g stroke="var(--release)"><path d="M57 88 V73 L65 62" stroke-dasharray="4 3"/><path d="M60 64 l6 -3 -1 6"/></g>
+   </g>
+   <rect x="15" y="89" width="81" height="23" rx="4" fill="#f8f5ef" stroke="var(--release)" stroke-width="1.5"/><text x="55.5" y="104" text-anchor="middle">引き外し機構</text>
+   <path d="M13 145 H33" stroke="#c65a08" stroke-width="3"/><text x="38" y="148">通電中の経路</text>
+   <path d="M122 145 H141" stroke="#724396" stroke-width="2" stroke-dasharray="4 3"/><text x="146" y="148">機構が動く向き</text>`},
+ tb:{name:'端子台',st:null,
+  role:'盤の外から来た電線と盤内の配線をつないだり、電源を複数の回路に分けたりする部品です。',
+  how:'このねじ式端子台では、<b>ねじ</b>を締めて電線を固定します。左の2端子は金属の<b>渡りバー</b>でつながり、右の2端子は別のバーでつながります。',
+  terms:'左が+24V、右が0Vです。2本のバーの間は絶縁されています。',
+  svg:`<rect x="40" y="30" width="180" height="100" rx="4" fill="#d9d3c2" stroke="#9a937f"/>
+   <rect x="62" y="66" width="56" height="13" fill="#c9a646"/><rect x="142" y="66" width="56" height="13" fill="#c9a646"/>
+   <path d="M70 60 V69 M110 60 V69 M150 60 V69 M190 60 V69" stroke="#c9a646" stroke-width="11"/>
+   ${[0,1,2,3].map(i=>`<circle cx="${70+i*40}" cy="60" r="10" fill="#b9bec1" stroke="#555"/><line x1="${64+i*40}" y1="54" x2="${76+i*40}" y2="66" stroke="#555" stroke-width="2"/><path d="M${70+i*40} 10 L${70+i*40} 50" stroke="${i<2?'#d8352a':'#2f6fd6'}" stroke-width="5"/>`).join('')}
+   <text x="90" y="103" text-anchor="middle" class="tm">+24V</text><text x="170" y="103" text-anchor="middle" class="tm">0V</text>
+   ${LB(196,57,221,43,'ねじ端子')}${LB(193,74,221,96,'渡りバー')}${LB(70,24,34,16,'電線','end')}`},
+};
+let demoT=null,curPart=null,partPaused=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function setPartState(index){
+  const sv=$('pstruct');
+  sv.dataset.state=String(index);sv.classList.toggle('on',index!==0);
+  $('pstate').textContent=PARTS[curPart].st?.[index]||'';
+}
+function advancePart(){
+  const states=PARTS[curPart].st;
+  if(states)setPartState((Number($('pstruct').dataset.state)+1)%states.length);
+}
+function updatePartPlayback(){
+  clearInterval(demoT);
+  const animated=!!PARTS[curPart].st;
+  $('partPlayback').hidden=!animated;
+  $('pstruct').classList.toggle('paused',partPaused);
+  $('partPause').textContent=partPaused?'自動再生':'一時停止';
+  if(animated&&!partPaused)demoT=setInterval(advancePart,1700);
+}
+$('partPause').addEventListener('click',()=>{partPaused=!partPaused;updatePartPlayback();});
+$('partNext').addEventListener('click',()=>{partPaused=true;advancePart();updatePartPlayback();});
+function setPartChoices(kinds){
+  const box=$('pchips');
+  box.replaceChildren();
+  for(const kind of kinds){
+    const button=document.createElement('button');
+    button.dataset.kind=kind;
+    button.textContent=PARTS[kind].name;
+    button.addEventListener('click',()=>showPart(kind));
+    box.appendChild(button);
+  }
+}
+function showPart(kind){
+  const d=PARTS[kind];if(!d)return;curPart=kind;
+  for(const button of $('pchips').children)button.setAttribute('aria-pressed',button.dataset.kind===kind);
+  const offDelay=kind==='timer'&&$('partDelay').value==='off';
+  const key=offDelay?'timer-off':kind;
+  $('partTimerMode').hidden=!(partsOnly&&kind==='timer');
+  if(partsOnly){
+    if(location.hash!=='#'+key)history.replaceState(null,'','#'+key);
+  }else{
+    $('partFull').href='?view=parts#'+key;
+  }
+  const sv=$('pstruct');sv.innerHTML=`<defs><marker id="mA" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8a5a00"/></marker></defs>`+(typeof d.svg==='function'?d.svg(offDelay):d.svg);
+  sv.setAttribute('class','ps '+kind);
+  setPartState(0);
+  // 引き出し線の文字が図の外に出る部品だけ、表示範囲を広げる。
+  const bounds=sv.getBBox(),left=Math.min(0,Math.floor(bounds.x)-4),top=Math.min(0,Math.floor(bounds.y)-4);
+  sv.setAttribute('viewBox',[left,top,Math.max(260,Math.ceil(bounds.x+bounds.width)+4)-left,Math.max(160,Math.ceil(bounds.y+bounds.height)+4)-top].join(' '));
+  $('pname').textContent=d.name;
+  renderPartText();
+  updatePartPlayback();
+}
+function renderPartText(){
+  const part=PARTS[curPart];if(!part)return;
+  const en=window.lessonLanguage?.current==='en'&&window.lessonPartEnglish?.[curPart];
+  const [role,how,terms]=en||[part.role,part.how,part.terms];
+  $('ptext').innerHTML=`<p><b class="tag">役割</b>${role}</p><p><b class="tag">しくみ</b>${how}</p><p><b class="tag">端子</b>${terms}</p>`;
+}
+document.addEventListener('lessonlanguagechange',renderPartText);
+
+if(partsOnly){
+  const page=$('partsPage');
+  page.querySelector('footer').before($('partCard'));
+  document.querySelector('.wrap').remove();
+  page.hidden=false;
+  setPartChoices(Object.keys(PARTS));
+  function showLinkedPart(){
+    const key=location.hash.slice(1);
+    const off=key==='timer-off';
+    $('partDelay').value=off?'off':'on';
+    const kind=off?'timer':key;
+    showPart(Object.hasOwn(PARTS,kind)?kind:'relay');
+  }
+  $('partDelay').addEventListener('change',()=>showPart('timer'));
+  window.addEventListener('hashchange',showLinkedPart);
+  showLinkedPart();
+  return;
+}
+
+const panel=$('panel'),diag=$('diag'),diagramFrame=$('circuitDiagram');
+const workArea=diagramFrame.closest('.main');
+let diagramZoom=100;
+$('diagramGrow').addEventListener('click',()=>{
+  diagramFrame.style.setProperty('--diagram-height','none');
+  $('diagramGrow').disabled=true;
+  $('diagramShrink').disabled=false;
+});
+$('diagramShrink').addEventListener('click',()=>{
+  if(getComputedStyle(diagramFrame).maxHeight==='none')diagramFrame.style.removeProperty('--diagram-height');
+  else diagramFrame.style.setProperty('--diagram-height',Math.max(120,diagramFrame.clientHeight-120)+'px');
+  $('diagramGrow').disabled=false;
+  $('diagramShrink').disabled=getComputedStyle(diagramFrame).maxHeight==='120px';
+});
+function zoomDiagram(delta){
+  diagramZoom=Math.max(50,Math.min(200,diagramZoom+delta));
+  workArea.style.setProperty('--diagram-scale',diagramZoom/100);
+  $('diagramZoom').textContent=diagramZoom+'%';
+  $('diagramZoomIn').disabled=diagramZoom===200;
+  $('diagramZoomOut').disabled=diagramZoom===50;
+}
+$('diagramZoomIn').addEventListener('click',()=>zoomDiagram(25));
+$('diagramZoomOut').addEventListener('click',()=>zoomDiagram(-25));
+
+
+
+/* ===================== 面の定義 ===================== */
+const HOLD=(stop,start,r)=>[stop,{par:[[start],[r+':13-14']]}];
+const OPS_SS=[['PB1','pb','a','起動','g'],['PB2','pb','b','停止','r'],['GL','lamp','','運転','g'],['RL','lamp','','停止','r']];
+const R_HOLD=[{i:HOLD('PB2','PB1','R1'),l:'R1'},{i:['R1:23-24'],l:'GL'},{i:['R1:41-42'],l:'RL'}];
+const R_TIMER=[{i:HOLD('PB2','PB1','R1'),l:'R1'},{i:['R1:23-24'],l:'GL'},{i:['R1:41-42'],l:'RL'},{i:['R1:33-34'],l:'T1'},{i:['T1:15-18'],l:'FAN'}];
+const STAGES=[
+ {name:'ボタンでランプが点く',tab:'ランプ',sub:'押している間だけ、リレーを通してランプが点く',
+  newParts:['R1','PB1','GL'],
+  intro:'盤の下にある緑の<b>起動</b>を押して、ランプが点いたら離してみよう。キー <kbd>1</kbd> でも試せます。押している間はリレー R1 の接点が閉じています。',
+  units:['R1'],ops:[['PB1','pb','a','起動','g'],['GL','lamp','','点灯','g']],
+  rungs:[{i:['PB1'],l:'R1'},{i:['R1:13-14'],l:'GL'}],timers:{}},
+ {name:'両手で押さないと動かない',tab:'両手',sub:'2つのボタンを直列につなぐAND回路',
+  newParts:['PB2','PRESS'],
+  intro:'展開接続図で<b>PB1（左手）</b>と<b>PB2（右手）</b>を見つけ、どこまで電気が通るか比べてみよう。実機の両手操作装置では、左右を押す時間差や再起動の条件も監視します。',
+  units:['R1','PRESS'],ops:[['PB1','pb','a','左手','g'],['PB2','pb','a','右手','g'],['GL','lamp','','運転','g']],
+  rungs:[{i:['PB1','PB2'],l:'R1'},{i:['R1:13-14'],l:'PRESS'},{i:['R1:23-24'],l:'GL'}],timers:{}},
+ {name:'押したら点きっぱなし',tab:'自己保持',sub:'ボタンを離してもR1が自分の接点で電気をつなぎ続ける',
+  newParts:['PB2','RL'],
+  intro:'<b>停止ボタン</b>(押すと切れるb接点)と<b>停止ランプ</b>が増えました。起動を押して離してみよう。点いたままになります。',
+  units:['R1'],ops:OPS_SS,
+  rungs:R_HOLD,timers:{}},
+ {name:'2か所から操作する',tab:'2か所',sub:'起動ボタンは並列(OR)、停止ボタンは直列。どちらからでも入れて、どちらからでも止められる',
+  newParts:['PB3','PB4','FAN'],
+  intro:'現場と事務所の<b>2か所</b>にボタンがある換気ファンの盤です。起動ボタンは<b>並列</b>(どちらでも入る)、停止ボタンは<b>直列</b>(どちらでも切れる)につないであります。',
+  units:['R1','FAN'],ops:[['PB1','pb','a','現場 起動','g'],['PB3','pb','b','現場 停止','r'],['PB2','pb','a','事務所 起動','g'],['PB4','pb','b','事務所 停止','r'],['GL','lamp','','運転','g'],['RL','lamp','','停止','r']],
+  rungs:[{i:['PB3','PB4',{par:[['PB1'],['PB2'],['R1:13-14']]}],l:'R1'},{i:['R1:23-24'],l:'FAN'},{i:['R1:33-34'],l:'GL'},{i:['R1:41-42'],l:'RL'}],timers:{}},
+ {name:'3秒後にファンが回る',tab:'タイマー',sub:'タイマーは、コイルに電気が入ってから設定時間後に接点を切り替える',
+  newParts:['T1'],
+  intro:'<b>タイマー</b>が登場。R1が入るとタイマーが数え始め、時間になると接点が閉じてファンが回ります。',
+  units:['R1','T1','FAN'],ops:OPS_SS,rungs:R_TIMER,timers:{T1:3}},
+ {name:'消してもしばらく回る換気扇',tab:'オフディレイ',sub:'オフディレイタイマー:電気が切れてから設定時間後に接点が戻る',
+  newParts:['T1','SW1'],offDelay:['T1'],
+  intro:'トイレの換気扇の回路です。<b>照明スイッチ</b>を切っても、<b>オフディレイタイマー</b>のおかげでファンはしばらく回り続けます。',
+  units:['R1','T1','FAN'],ops:[['SW1','sw','a','照明','切|入'],['YL','lamp','','照明','y'],['GL','lamp','','換気中','g']],
+  rungs:[{i:['SW1'],l:'R1'},{i:['R1:13-14'],l:'YL'},{i:['R1:23-24'],l:'T1'},{i:['T1:15-18'],l:'FAN'},{i:['T1:25-28'],l:'GL'}],timers:{T1:5}},
+ {name:'交互にチカチカ',tab:'点滅',sub:'2つのタイマーがお互いを切ったり入れたりして点滅をつくる',
+  newParts:['T2','YL'],
+  intro:'<b>2個目のタイマー</b>と<b>黄色ランプ</b>が登場。T1とT2が交互に「カチ、カチ」と動いて、ランプが点滅します。',
+  units:['R1','T1','T2'],ops:[['PB1','pb','a','起動','g'],['PB2','pb','b','停止','r'],['GL','lamp','','運転','g'],['YL','lamp','','点滅','y']],
+  rungs:[{i:HOLD('PB2','PB1','R1'),l:'R1'},{i:['R1:23-24'],l:'GL'},{i:['R1:33-34','T2:15-16'],l:'T1'},{i:['T1:15-18'],l:'T2'},{i:['T1:25-28'],l:'YL'}],timers:{T1:1,T2:1}},
+ {name:'信号機',tab:'信号機',sub:'タイマー3個のリレー競走。青 → 黄 → 赤 → 青…と順番にくり返す',
+  newParts:['T3'],
+  intro:'<b>3個目のタイマー</b>が登場。T1が青、T2が黄、T3が赤の時間を数えます。T3が終わるとT1が切れて、全部が最初に戻ります。',
+  units:['R1','T1','T2','T3'],ops:[['PB1','pb','a','起動','g'],['PB2','pb','b','停止','r'],['GL','lamp','','青','g'],['YL','lamp','','黄','y'],['RL','lamp','','赤','r']],
+  rungs:[{i:HOLD('PB2','PB1','R1'),l:'R1'},{i:['R1:23-24','T3:15-16'],l:'T1'},{i:['T1:15-18'],l:'T2'},{i:['T2:15-18'],l:'T3'},
+         {i:['R1:33-34','T1:25-26'],l:'GL'},{from:'t1_25',i:['T1:25-28','T2:25-26'],l:'YL'},{from:'t2_25',i:['T2:25-28'],l:'RL'}],timers:{T1:3,T2:1,T3:3}},
+ {name:'片方しか動かない',tab:'インターロック',sub:'正転中は逆転が入らない。相手のb接点で自分を止めている',
+  newParts:['R2','M','PB3'],
+  intro:'<b>2個目のリレー</b>と<b>正転/逆転モーター</b>が登場。正転中に逆転ボタンを押しても入りません。止めてから押すと逆転します。',
+  units:['R1','R2','M'],ops:[['PB1','pb','a','正転','g'],['PB2','pb','a','逆転','y'],['PB3','pb','b','停止','r'],['GL','lamp','','正転','g'],['YL','lamp','','逆転','y']],
+  rungs:[{i:[...HOLD('PB3','PB1','R1'),'R2:41-42'],l:'R1'},
+         {from:'pb3_2',i:[{par:[['PB2'],['R2:13-14']]},'R1:41-42'],l:'R2'},
+         {i:['R1:23-24'],l:'M:F'},{i:['R2:23-24'],l:'M:R'},{i:['R1:33-34'],l:'GL'},{i:['R2:33-34'],l:'YL'}],timers:{}},
+ {name:'早押しクイズ',tab:'クイズ',sub:'先入力優先:最初に押した人のリレーが、ほかの人の回路を切ってしまう',
+  newParts:['R3','PB4'],r2b:true,
+  intro:'<b>3個目のリレー</b>が登場(b接点が2つあるタイプ)。いちばん早く押した人のランプだけが点き、ほかの人は押しても点きません。<b>リセット</b>で次の問題へ。',
+  units:['R1','R2','R3'],ops:[['PB1','pb','a','Aさん','g'],['PB2','pb','a','Bさん','y'],['PB3','pb','a','Cさん','r'],['PB4','pb','b','リセット','r'],['GL','lamp','','A','g'],['YL','lamp','','B','y'],['RL','lamp','','C','r']],
+  rungs:[{i:[...HOLD('PB4','PB1','R1'),'R2:31-32','R3:31-32'],l:'R1'},
+         {from:'pb4_2',i:[{par:[['PB2'],['R2:13-14']]},'R1:31-32','R3:41-42'],l:'R2'},
+         {from:'pb4_2',i:[{par:[['PB3'],['R3:13-14']]},'R1:41-42','R2:41-42'],l:'R3'},
+         {i:['R1:23-24'],l:'GL'},{i:['R2:23-24'],l:'YL'},{i:['R3:23-24'],l:'RL'}],timers:{}},
+ {name:'上まで行ったら自動で止まる',tab:'シャッター',sub:'リミットスイッチ:機械が自分でスイッチを押して回路を切る',
+  newParts:['SH'],
+  intro:'<b>シャッター</b>が登場。上昇ボタンを押すと上がり、いちばん上で<b>リミットスイッチLS1</b>が押されて自動で止まります。下降も同じです。',
+  units:['R1','R2','SH'],ops:[['PB1','pb','a','上昇','g'],['PB2','pb','a','下降','y'],['PB3','pb','b','停止','r'],['GL','lamp','','上昇中','g'],['YL','lamp','','下降中','y']],
+  rungs:[{i:[...HOLD('PB3','PB1','R1'),'LS1','R2:41-42'],l:'R1'},
+         {from:'pb3_2',i:[{par:[['PB2'],['R2:13-14']]},'LS2','R1:41-42'],l:'R2'},
+         {i:['R1:23-24'],l:'SH:U'},{i:['R2:23-24'],l:'SH:D'},{i:['R1:33-34'],l:'GL'},{i:['R2:33-34'],l:'YL'}],timers:{}},
+ {name:'水が減ったら自動でくむ',tab:'給水',sub:'フロートスイッチ:水位でスイッチが入り、ボタンなしでポンプが動く',
+  newParts:['TK'],
+  intro:'<b>給水タンク</b>が登場。蛇口を「開」にすると水が減り、下限(FS1)まで減るとポンプが自動で動き出し、満水(FS2)で止まります。',
+  units:['R1','TK'],ops:[['SW1','sw','a','蛇口',''],['GL','lamp','','給水中','g'],['RL','lamp','','停止中','r']],
+  rungs:[{i:['FS2',{par:[['FS1'],['R1:13-14']]}],l:'R1'},{i:['R1:23-24'],l:'PUMP'},{i:['SW1'],l:'SV'},{i:['R1:33-34'],l:'GL'},{i:['R1:41-42'],l:'RL'}],timers:{}},
+ {name:'荷物が来たら止まる',tab:'コンベア',sub:'光電センサ:光で荷物を見つけて、さわらずにスイッチを切り替える',
+  newParts:['CONV'],
+  intro:'<b>ベルトコンベア</b>と<b>光電センサ</b>が登場。荷物がセンサーの下に来るとコンベアが止まります。<b>荷物をクリック</b>して取ると、また動き出します。',
+  units:['R1','CONV'],ops:[['SW1','sw','a','運転','停止|運転'],['GL','lamp','','運転中','g'],['YL','lamp','','荷物到着','y']],
+  rungs:[{i:['SW1','PH:b'],l:'R1'},{i:['R1:13-14'],l:'CONV'},{i:['R1:23-24'],l:'GL'},{i:['PH:a'],l:'YL'}],timers:{}},
+ {name:'押している間だけ動かす',tab:'寸動',sub:'寸動(インチング):切替スイッチで自己保持を切ると、少しずつ動かせる',
+  newParts:['SW1'],
+  intro:'切替スイッチを<b>連続</b>にすると普通の自己保持、<b>寸動</b>にすると押している間だけ動きます。荷物の位置合わせに使う回路です。',
+  units:['R1','CONV'],ops:[['PB1','pb','a','起動','g'],['PB2','pb','b','停止','r'],['SW1','sw','a','モード','寸動|連続'],['GL','lamp','','運転','g']],
+  rungs:[{i:['PB2',{par:[['PB1'],['SW1','R1:13-14']]}],l:'R1'},{i:['R1:23-24'],l:'CONV'},{i:['R1:33-34'],l:'GL'}],timers:{}},
+ {name:'モーターを守る',tab:'過負荷',sub:'サーマルリレー:無理をして熱くなると自動で切れ、ブザーで知らせる',
+  newParts:['THR','BZ'],heavy:true,
+  intro:'<b>サーマルリレー</b>と<b>ブザー</b>が登場。モーターの<b>負荷を「重い」</b>にして回し続けると、熱がたまって自動で止まります。冷めたら<b>RESET</b>で復帰。',
+  units:['R1','THR','M'],ops:[['PB1','pb','a','起動','g'],['PB2','pb','b','停止','r'],['GL','lamp','','運転','g'],['RL','lamp','','過負荷','r'],['BZ','bz','','ブザー','']],
+  rungs:[{i:[...HOLD('PB2','PB1','R1'),'THR:95-96'],l:'R1'},{i:['R1:23-24'],l:'M:F'},{i:['R1:33-34'],l:'GL'},{i:['THR:97-98'],l:'RL'},{from:'thr_98',i:[],l:'BZ'}],timers:{}},
+ {name:'非常停止',tab:'非常停止',sub:'押すとロックされる非常停止ボタン。解除するまで再起動できない',
+  newParts:['EMG'],
+  intro:'起動を押して離し、次に<b>非常停止</b>を押してみよう。コンベアが止まり、警報が鳴ります。もう一度クリックするとロックが外れます。この盤では起動を押したまま解除すると再始動するため、実機の再起動防止回路とは異なります。',
+  units:['R1','CONV'],ops:[['EMG','emg','','非常停止',''],['PB1','pb','a','起動','g'],['PB2','pb','b','停止','r'],['GL','lamp','','運転','g'],['RL','lamp','','非常停止','r'],['BZ','bz','','ブザー','']],
+  rungs:[{i:['EMG:b',...HOLD('PB2','PB1','R1')],l:'R1'},{i:['R1:23-24'],l:'CONV'},{i:['R1:33-34'],l:'GL'},{i:['EMG:a'],l:'RL'},{from:'emg_4',i:[],l:'BZ'}],timers:{}},
+ {name:'順番に動く',tab:'順番',sub:'ランプ → ファン → ブザーの順に、時間差で動いていく',
+  newParts:[],
+  intro:'タイマー2個で順番に動く盤です。起動を押すと、まずランプ、T1の時間後にファン、さらにT2の時間後にブザーが鳴ります。',
+  units:['R1','T1','T2','FAN'],ops:[['PB1','pb','a','起動','g'],['PB2','pb','b','停止','r'],['GL','lamp','','運転','g'],['BZ','bz','','ブザー','']],
+  rungs:[{i:HOLD('PB2','PB1','R1'),l:'R1'},{i:['R1:23-24'],l:'GL'},{i:['R1:33-34'],l:'T1'},{i:['T1:15-18'],l:'FAN'},{i:['T1:25-28'],l:'T2'},{i:['T2:15-18'],l:'BZ'}],timers:{T1:2,T2:2}},
+ {name:'踏切',tab:'踏切',sub:'電車が来たら警報ランプが交互に点滅し、ブザーが鳴って遮断機が下りる',
+  newParts:['GATE','LL','LR'],
+  intro:'<b>踏切</b>です。<b>接近</b>ボタンで警報開始、<b>通過</b>ボタンで解除。点滅回路と自己保持の組み合わせです。',
+  units:['R1','T1','T2','GATE'],ops:[['PB1','pb','a','接近','g'],['PB2','pb','b','通過','r'],['GL','lamp','','通行OK','g'],['LL','lamp','','警報 左','r'],['LR','lamp','','警報 右','r'],['BZ','bz','','ブザー','']],
+  rungs:[{i:HOLD('PB2','PB1','R1'),l:'R1'},{i:['R1:23-24','T2:15-16'],l:'T1'},{from:'r1_24',i:[],l:'GATE'},{from:'r1_24',i:[],l:'BZ'},
+         {i:['T1:15-18'],l:'T2'},{i:['R1:33-34','T1:25-28'],l:'LL'},{from:'t1_25',i:['T1:25-26'],l:'LR'},{i:['R1:41-42'],l:'GL'}],timers:{T1:.7,T2:.7}},
+ {name:'配線間違いの盤を直そう',tab:'配線直し',sub:'展開接続図と盤の配線を見比べて、つなぎ先が違う線を2本見つけよう',
+  newParts:[],faults:[{w:['t1_18','fan_1'],to:['t1_16','fan_1']},{w:['r1_14','r1_A1'],to:['r1_14','r1_42']}],
+  intro:'<b>展開接続図がお手本</b>です。図と盤で同じ番号の線を見比べ、間違った線を外して正しい端子につなぎ直そう。直したら、起動と停止を試して動きを確かめよう。',
+  units:['R1','T1','FAN'],ops:OPS_SS,rungs:R_TIMER,timers:{T1:3}},
+ {name:'ゼロから自己保持回路を配線しよう',tab:'ゼロから配線',blank:true,
+  sub:'起動を離しても運転が続き、停止を押すと止まる盤を作ろう',
+  intro:'ブレーカーは<b>OFF</b>です。盤の端子を2つ順に選ぶと線を引けます。まずは停止ボタン・起動ボタン・リレーのコイルをつなぎ、次に自己保持の接点と2つのランプを配線しましょう。配線ができたらブレーカーをONにして試してください。',
+  newParts:[],units:['R1'],ops:OPS_SS,rungs:R_HOLD,timers:{}},
+];
+
+/* ===================== 状態 ===================== */
+let ST=null, stageIdx=0;
+let T={}, wires=[], COMPS={}, CONTACTS=[], LOADS=[], SELFHOLD=new Set();
+let boxSeq=0;
+const S={sh:{pos:1,jamT:0},tk:{level:.6},prs:{pos:0},cv:{boxes:[],detect:false,off:0,spd:0},thr:{heat:0,trip:false},emg:false,breaker:true,tripped:false,press:{},rel:{},tim:{},preset:{},slow:false,sound:true,
+  fan:{spd:0,ang:0},mot:{spd:0,ang:0},gate:{ang:-80},stageT:0};
+const DELAY=()=>S.slow?420:22;
+const node=t=>T[t]?T[t].node:t;
+function term(id,x,y,dir,label,node){T[id]={id,x,y,dir,label,node:node||id};}
+
+/* ===================== 回路データ ===================== */
+const R2B=[['13','14','a'],['23','24','a'],['31','32','b'],['41','42','b']];
+const PAIRS={relay:[['13','14','a'],['23','24','a'],['33','34','a'],['41','42','b']],
+             timer:[['15','18','a'],['15','16','b'],['25','28','a'],['25','26','b']]};
+function setupComps(st){
+  COMPS={};CONTACTS=[];LOADS=[];
+  st.units.forEach(id=>{
+    const type=id==='TK'?'tank':id==='SH'?'shutter':id==='PRESS'?'press':id==='CONV'?'conveyor':id==='THR'?'thermal':/^R\d$/.test(id)?'relay':/^T\d$/.test(id)?'timer':id==='FAN'?'fan':id==='M'?'motor':'gate';
+    COMPS[id]={id,type,label:{relay:id+'リレー',timer:id+'タイマー',fan:'ファン',motor:'モーター',gate:'遮断機',shutter:'シャッター',tank:'給水タンク',press:'プレス機',conveyor:'コンベア',thermal:'サーマルリレー'}[type]};
+    const p=id.toLowerCase();
+    if(type==='relay'||type==='timer'){
+      (type==='relay'&&st.r2b?R2B:PAIRS[type]).forEach(([a,b,k])=>CONTACTS.push({key:id+':'+a+'-'+b,a:p+'_'+a,b:p+'_'+b,kind:k,comp:id}));
+      LOADS.push({key:id,a:p+'_A1',b:p+'_A2'});
+    }
+    if(type==='fan') LOADS.push({key:'FAN',a:'fan_1',b:'fan_2'});
+    if(type==='motor'){LOADS.push({key:'M:F',a:'m_F',b:'m_C'});LOADS.push({key:'M:R',a:'m_R',b:'m_C'});}
+    if(type==='gate') LOADS.push({key:'GATE',a:'gate_1',b:'gate_2'});
+    if(type==='press') LOADS.push({key:'PRESS',a:'press_1',b:'press_2'});
+    if(type==='conveyor'){
+      COMPS[id].names={1:'コンベアのモーター',2:'コンベアのモーター',a1:'光電センサ(a接点)',a2:'光電センサ(a接点)',b1:'光電センサ(b接点)',b2:'光電センサ(b接点)'};
+      LOADS.push({key:'CONV',a:'conv_1',b:'conv_2'});
+      CONTACTS.push({key:'PH:a',a:'conv_a1',b:'conv_a2',kind:'a',comp:'CONV',dlabel:'PH センサ',fn:()=>S.cv.detect});
+      CONTACTS.push({key:'PH:b',a:'conv_b1',b:'conv_b2',kind:'b',comp:'CONV',dlabel:'PH センサ',fn:()=>!S.cv.detect});
+    }
+    if(type==='thermal'){
+      COMPS[id].names={95:'THRの95',96:'THRの96',97:'THRの97',98:'THRの98'};
+      CONTACTS.push({key:'THR:95-96',a:'thr_95',b:'thr_96',kind:'b',comp:'THR',dlabel:'THR 95-96',fn:()=>!S.thr.trip});
+      CONTACTS.push({key:'THR:97-98',a:'thr_97',b:'thr_98',kind:'a',comp:'THR',dlabel:'THR 97-98',fn:()=>S.thr.trip});
+    }
+    if(type==='shutter'){
+      COMPS[id].names={U:'シャッター上昇端子',D:'シャッター下降端子',C:'シャッター共通端子',l11:'LS1(上限)',l12:'LS1(上限)',l21:'LS2(下限)',l22:'LS2(下限)'};
+      LOADS.push({key:'SH:U',a:'sh_U',b:'sh_C'});LOADS.push({key:'SH:D',a:'sh_D',b:'sh_C'});
+      CONTACTS.push({key:'LS1',a:'sh_l11',b:'sh_l12',kind:'b',comp:'SH',dlabel:'LS1 上限',fn:()=>S.sh.pos>0.0005});
+      CONTACTS.push({key:'LS2',a:'sh_l21',b:'sh_l22',kind:'b',comp:'SH',dlabel:'LS2 下限',fn:()=>S.sh.pos<0.9995});
+    }
+    if(type==='tank'){
+      COMPS[id].names={p1:'ポンプ',p2:'ポンプ',v1:'電磁弁(蛇口)',v2:'電磁弁(蛇口)',f11:'FS1(減水)',f12:'FS1(減水)',f21:'FS2(満水)',f22:'FS2(満水)'};
+      LOADS.push({key:'PUMP',a:'tk_p1',b:'tk_p2'});LOADS.push({key:'SV',a:'tk_v1',b:'tk_v2'});
+      CONTACTS.push({key:'FS1',a:'tk_f11',b:'tk_f12',kind:'a',comp:'TK',dlabel:'FS1 減水',fn:()=>S.tk.level<=0.2});
+      CONTACTS.push({key:'FS2',a:'tk_f21',b:'tk_f22',kind:'b',comp:'TK',dlabel:'FS2 満水',fn:()=>S.tk.level<0.9});
+    }
+  });
+  st.ops.forEach(([id,type,kind,name,col])=>{
+    const p=id.toLowerCase();
+    COMPS[id]={id,type,kind,name,col,label:type==='emg'?'非常停止ボタン':(type==='pb'||type==='sw')?`${id}(${name})`:type==='bz'?'ブザー':`${id}(${name}ランプ)`};
+    if(type==='emg'){
+      CONTACTS.push({key:'EMG:b',a:'emg_1',b:'emg_2',kind:'b',comp:'EMG',dlabel:'EMG 非常停止',fn:()=>!S.emg});
+      CONTACTS.push({key:'EMG:a',a:'emg_3',b:'emg_4',kind:'a',comp:'EMG',dlabel:'EMG 非常停止',fn:()=>S.emg});
+    }
+    else if(type==='pb'||type==='sw') CONTACTS.push({key:id,a:p+'_1',b:p+'_2',kind,comp:id});
+    else LOADS.push({key:id,a:type==='bz'?p+'_1':p+'_X1',b:type==='bz'?p+'_2':p+'_X2'});
+  });
+}
+const contactOf=k=>CONTACTS.find(c=>c.key===k);
+const loadOf=k=>LOADS.find(l=>l.key===k);
+function contactClosed(c){
+  if(c.fn)return c.fn();
+  if(c.comp.startsWith('PB')||c.comp.startsWith('SW')){const pr=!!S.press[c.comp];return c.kind==='a'?pr:!pr;}
+  const on=c.comp[0]==='R'?S.rel[c.comp]?.on:S.tim[c.comp]?.up;
+  return c.kind==='a'?!!on:!on;
+}
+function tname(t){
+  if(t.startsWith('P')&&/^P\d/.test(t))return '+24V';
+  if(/^N\d/.test(t))return '0V';
+  const [p,n]=t.split('_');const id=p.toUpperCase();const c=COMPS[id]||COMPS[{fan:'FAN',m:'M',gate:'GATE'}[p]];
+  if(!c) return t;
+  if(c.names&&c.names[n]) return c.names[n];
+  if(c.type==='relay'||c.type==='timer') return `${c.id}の${n}`;
+  if(c.type==='motor') return {F:'モーター正転端子',R:'モーター逆転端子',C:'モーター共通端子'}[n];
+  return n?`${c.label}の${n}`:c.label;
+}
+
+/* 回路定義 → 配線と接続図 */
+let DGL={segs:[],els:[],dots:[],h:400};
+function buildCircuit(st){
+  wires=[];SELFHOLD=new Set();
+  const segs=[],els=[],dots=[],pos={};
+  const XP=30,XN=450,LX=402,GAP=34,ROW=64,ROWH=70;
+  let pIdx=0,nIdx=0,y=60,wn=0;const nOf={};
+  const addWire=(a,b,pts,role)=>{
+    let w=wires.find(w=>(w.a===a&&w.b===b)||(w.a===b&&w.b===a));
+    if(!w){w={id:'w'+(++wn),a,b,role:role||`${tname(a)} → ${tname(b)}`,orig:true,cut:false};wires.push(w);}
+    segs.push({id:w.id,pts});return w;
+  };
+  const connect=(prev,tin,pt,role)=>prev.forEach(p=>addWire(p.t,tin,p.main?[...p.pts,pt]:p.pts,typeof role==='function'?role(p):role));
+  st.rungs.forEach(r=>{
+    const load=loadOf(r.l);
+    const isRelayCoil=/^R\d$/.test(r.l);
+    let prev,cursor;
+    if(r.from){const [fx,fy]=pos[r.from];cursor=fx;prev=[{t:r.from,pts:[[fx,fy],[fx,y]],main:true}];dots.push([fx,fy]);}
+    else{const P='P'+(++pIdx);prev=[{t:P,pts:[[XP,y]],main:true}];cursor=XP;}
+    let rows=0;
+    const roleTo=(c)=>p=>{
+      if(SELFHOLD.has(c.key)) return `${tname(p.t)} → ${tname(c.a)}。<b>自己保持の入口</b>です。`;
+      if(c.kind==='b'&&c.comp!==r.l&&/^R/.test(c.comp)&&isRelayCoil) return `${tname(p.t)} → ${tname(c.a)}。相手のb接点を通る<b>インターロック</b>の線です。`;
+      return null;
+    };
+    const place=(key,x,yy)=>{const c=contactOf(key);els.push({k:'c',key,x,y:yy,c});pos[c.a]=[x,yy];pos[c.b]=[x+30,yy];return c;};
+    const addContact=(key)=>{
+      const c=contactOf(key);
+      if(prev.length===1&&prev[0].t===c.a){segs.push({id:null,node:c.a,pts:[...prev[0].pts,[cursor,y]]});place(key,cursor,y);}
+      else{const x=cursor+GAP;connect(prev,c.a,[x,y],roleTo(c));place(key,x,y);cursor=x;}
+      cursor+=30;prev=[{t:c.b,pts:[[cursor,y]],main:true}];
+    };
+    r.i.forEach(it=>{
+      if(typeof it==='string'){addContact(it);return;}
+      // 並列
+      const xs=cursor+12;const outs=[];
+      if(isRelayCoil) it.par.forEach(b=>b.forEach(k=>{if(k.startsWith(r.l+':'))SELFHOLD.add(k);}));
+      it.par.forEach((br,bi)=>{
+        const yy=y+bi*ROWH;let bx=xs+24,bprev;
+        br.forEach((k,j)=>{
+          const c=contactOf(k);
+          if(j===0){
+            if(bi===0) connect(prev,c.a,[bx,yy],roleTo(c));
+            else{addWire(prev[0].t,c.a,[[xs,y],[xs,yy],[bx,yy]],roleTo(c)(prev[0]));dots.push([xs,y]);}
+          }else{bx+=GAP;addWire(bprev.t,c.a,[[bprev.x,yy],[bx,yy]]);}
+          place(k,bx,yy);bx+=30;bprev={t:c.b,x:bx};
+        });
+        outs.push({t:bprev.t,x:bprev.x,y:yy});
+      });
+      rows=Math.max(rows,it.par.length-1);
+      const xj=Math.max(...outs.map(o=>o.x))+16;dots.push([xj,y]);
+      prev=outs.map((o,i)=>i===0?{t:o.t,pts:[[o.x,y]],main:true}:{t:o.t,pts:[[o.x,o.y],[xj,o.y],[xj,y]],main:false,hold:it.par[i].some(k=>SELFHOLD.has(k))});
+      cursor=xj;
+    });
+    // 負荷
+    connect(prev,load.a,[LX-16,y],p=>{
+      if(p.hold) return `${tname(p.t)} → ${tname(load.a)}。<b>自己保持の出口</b>。抜くとボタンを押している間だけ動きます。`;
+      return `${tname(p.t)} → ${tname(load.a)}。${load.key.startsWith('R')||load.key.startsWith('T')?'コイルに電気を届けます。':''}`;
+    });
+    els.push({k:'l',key:load.key,x:LX,y});
+    if(nOf[load.b]) addWire(load.b,nOf[load.b],[[LX+16,y],[XN,y]]);
+    else{const N='N'+(++nIdx);nOf[load.b]=N;addWire(load.b,N,[[LX+16,y],[XN,y]],`${tname(load.b)} → 0V。戻りの線。抜くとこの部品は動きません。`);}
+    y+=ROW+rows*ROWH;
+  });
+  wires.forEach((w,i)=>w.n=i+1);
+  DGL={segs,els,dots,h:y-10,XP,XN,pCount:pIdx,nCount:nIdx};
+}
+
+/* ===================== 回路計算 ===================== */
+function solve(isClosed=contactClosed){
+  const adj=new Map();
+  const add=(u,v,e)=>{(adj.get(u)||adj.set(u,[]).get(u)).push([v,e]);(adj.get(v)||adj.set(v,[]).get(v)).push([u,e]);};
+  if(S.breaker) add('SRC','P',{id:'brk',a:'SRC',b:'P'});
+  CONTACTS.forEach(c=>{if(isClosed(c))add(node(c.a),node(c.b),{id:c.key,a:node(c.a),b:node(c.b)});});
+  wires.forEach(w=>{if(!w.cut)add(node(w.a),node(w.b),{id:w.id,a:node(w.a),b:node(w.b)});});
+  const bfs=s=>{const par=new Map([[s,null]]);const q=[s];while(q.length){const u=q.shift();for(const [v,e] of adj.get(u)||[])if(!par.has(v)){par.set(v,[u,e]);q.push(v);}}return par;};
+  const pP=bfs('SRC');
+  if(pP.has('N')) return {short:true};
+  const pN=bfs('N');const load={},flow=new Map();
+  const tr=(par,n,sg)=>{while(par.get(n)){const [u,e]=par.get(n);flow.set(e.id,(u===e.a?1:-1)*sg);n=u;}};
+  LOADS.forEach(L=>{const A=node(L.a),B=node(L.b);let on=false;
+    if(pP.has(A)&&pN.has(B)){on=true;tr(pP,A,1);tr(pN,B,-1);}else if(pP.has(B)&&pN.has(A)){on=true;tr(pP,B,1);tr(pN,A,-1);}
+    load[L.key]=on;});
+  return {short:false,load,hot:new Set(pP.keys()),flow};
+}
+
+/* ===================== 音 ===================== */
+let AC=null,hum=null,bzO=null;
+function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}if(AC&&AC.state==='suspended')AC.resume();return AC;}
+function click(kind){
+  if(!S.sound)return;const a=ac();if(!a)return;const t=a.currentTime;
+  const len=Math.floor(a.sampleRate*.035),buf=a.createBuffer(1,len,a.sampleRate),d=buf.getChannelData(0);
+  for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,6);
+  const s=a.createBufferSource();s.buffer=buf;const f=a.createBiquadFilter();f.type='bandpass';
+  f.frequency.value={on:3200,off:2300,tick:5200,trip:1500}[kind]||2600;f.Q.value=1.4;
+  const g=a.createGain();g.gain.value=kind==='trip'?1.4:.9;s.connect(f).connect(g).connect(a.destination);s.start(t);
+  const o=a.createOscillator(),og=a.createGain();o.frequency.setValueAtTime(kind==='on'?190:140,t);o.frequency.exponentialRampToValueAtTime(60,t+.05);
+  og.gain.setValueAtTime(.25,t);og.gain.exponentialRampToValueAtTime(.001,t+.06);o.connect(og).connect(a.destination);o.start(t);o.stop(t+.07);
+}
+function audioUpdate(now,bzOn){
+  if(!AC)return;
+  if(!hum){hum={o:AC.createOscillator(),g:AC.createGain(),f:AC.createBiquadFilter()};hum.o.type='sawtooth';hum.f.type='lowpass';hum.f.frequency.value=380;hum.g.gain.value=0;hum.o.connect(hum.f).connect(hum.g).connect(AC.destination);hum.o.start();
+    bzO={o:AC.createOscillator(),g:AC.createGain()};bzO.o.type='square';bzO.o.frequency.value=2300;bzO.g.gain.value=0;bzO.o.connect(bzO.g).connect(AC.destination);bzO.o.start();}
+  const sp=Math.max(S.fan.spd,S.mot.spd,S.cv?.spd||0);
+  hum.o.frequency.value=40+sp*70;hum.g.gain.value=S.sound?sp*.035:0;
+  bzO.g.gain.value=(S.sound&&bzOn&&Math.floor(now/90)%2===0)?.03:0;
+}
+
+/* ===================== 描画ヘルパ ===================== */
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
+function box3d(g,x,y,w,h,d,front,top,side,extra={}){
+  const dx=d*.55,dy=d*.8;
+  el('polygon',{points:`${x},${y} ${x+w},${y} ${x+w+dx},${y-dy} ${x+dx},${y-dy}`,fill:top},g);
+  el('polygon',{points:`${x+w},${y} ${x+w+dx},${y-dy} ${x+w+dx},${y+h-dy} ${x+w},${y+h}`,fill:side},g);
+  return el('rect',Object.assign({x,y,width:w,height:h,fill:front},extra),g);
+}
+function text(g,x,y,s,cls,attrs={}){
+  const a={x,y,class:cls,...attrs};
+  if(cls==='lbl'||cls==='plate-t')a['text-anchor']??='middle';
+  if(cls==='lbl')a['font-size']??=10;
+  const t=el('text',a,g);
+  if(a.fill)t.style.fill=a.fill;
+  if(a['font-size'])t.style.fontSize=a['font-size']+'px';
+  t.textContent=s;return t;
+}
+
+const DEFS=`
+<linearGradient id="gPlate" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d9dcd6"/><stop offset="1" stop-color="#b9bdb7"/></linearGradient>
+<pattern id="pHole" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="11" cy="11" r="2.2" fill="#a9ada7"/></pattern>
+<pattern id="pStripe" width="20" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="#f4d21e"/><rect x="10" width="10" height="10" fill="#1c1c1c"/></pattern>
+<linearGradient id="gAlu" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e7e9e6"/><stop offset=".5" stop-color="#c7cac6"/><stop offset="1" stop-color="#d9dbd8"/></linearGradient>
+<linearGradient id="gCopper" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7a3e14"/><stop offset=".35" stop-color="#e09a55"/><stop offset=".6" stop-color="#b8692c"/><stop offset="1" stop-color="#6c3410"/></linearGradient>
+<linearGradient id="gGold" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9a7a20"/><stop offset=".5" stop-color="#f1d77a"/><stop offset="1" stop-color="#9a7a20"/></linearGradient>
+<linearGradient id="gMotor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5d7fa3"/><stop offset=".5" stop-color="#3b5d82"/><stop offset="1" stop-color="#2a4563"/></linearGradient>
+<radialGradient id="gScrew" cx=".35" cy=".35" r=".7"><stop offset="0" stop-color="#fafafa"/><stop offset=".6" stop-color="#a9adb0"/><stop offset="1" stop-color="#5e6366"/></radialGradient>
+<radialGradient id="gBtn_g" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#8ef09a"/><stop offset=".55" stop-color="#2f9e43"/><stop offset="1" stop-color="#17602a"/></radialGradient>
+<radialGradient id="gBtn_r" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#ff9a8a"/><stop offset=".55" stop-color="#c8281c"/><stop offset="1" stop-color="#7a120c"/></radialGradient>
+<radialGradient id="gBtn_y" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#fff2a6"/><stop offset=".55" stop-color="#e2b31c"/><stop offset="1" stop-color="#8a6508"/></radialGradient>
+<radialGradient id="gOn_g" cx=".45" cy=".4" r=".65"><stop offset="0" stop-color="#eaffe8"/><stop offset=".35" stop-color="#5dff6e"/><stop offset="1" stop-color="#11962a"/></radialGradient>
+<radialGradient id="gOn_r" cx=".45" cy=".4" r=".65"><stop offset="0" stop-color="#fff0e8"/><stop offset=".35" stop-color="#ff5c45"/><stop offset="1" stop-color="#a5150b"/></radialGradient>
+<radialGradient id="gOn_y" cx=".45" cy=".4" r=".65"><stop offset="0" stop-color="#fffbe6"/><stop offset=".35" stop-color="#ffd84a"/><stop offset="1" stop-color="#b37a00"/></radialGradient>
+<radialGradient id="gOff_g" cx=".45" cy=".4" r=".7"><stop offset="0" stop-color="#5f7d62"/><stop offset="1" stop-color="#1d3220"/></radialGradient>
+<radialGradient id="gOff_r" cx=".45" cy=".4" r=".7"><stop offset="0" stop-color="#7d5f5c"/><stop offset="1" stop-color="#321c1a"/></radialGradient>
+<radialGradient id="gOff_y" cx=".45" cy=".4" r=".7"><stop offset="0" stop-color="#7d7550"/><stop offset="1" stop-color="#33301a"/></radialGradient>
+<radialGradient id="gGlow_g"><stop offset="0" stop-color="#6dff7a" stop-opacity=".75"/><stop offset="1" stop-color="#6dff7a" stop-opacity="0"/></radialGradient>
+<radialGradient id="gGlow_r"><stop offset="0" stop-color="#ff5b3e" stop-opacity=".75"/><stop offset="1" stop-color="#ff5b3e" stop-opacity="0"/></radialGradient>
+<radialGradient id="gGlow_y"><stop offset="0" stop-color="#ffd84a" stop-opacity=".75"/><stop offset="1" stop-color="#ffd84a" stop-opacity="0"/></radialGradient>
+<pattern id="pSlat" width="10" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="#b9bec1"/><rect y="7.5" width="10" height="2.5" fill="#7c8387"/></pattern>
+<filter id="fSh" x="-20%" y="-20%" width="150%" height="150%"><feDropShadow dx="5" dy="7" stdDeviation="4" flood-color="#000" flood-opacity=".35"/></filter>
+<filter id="fWire" x="-5%" y="-5%" width="110%" height="115%"><feDropShadow dx="2" dy="4" stdDeviation="2" flood-color="#000" flood-opacity=".35"/></filter>`;
+
+/* ===================== 部品の描画 ===================== */
+let P={};
+const UW={relay:160,timer:150,fan:180,motor:180,gate:210,shutter:200,tank:220,press:170,conveyor:300,thermal:150};
+function newTag(g,c,x,y){if(ST.newParts.includes(c.id)){g.classList.add('enter');g.style.animationDelay=(P.delay+=.12)+'s';const t=text(panel,x,y,'NEW!','plate-t',{'font-size':12,fill:'#ff7a00','text-anchor':'start',class:'plate-t newtag'});P.newtags.push(t);}}
+
+function drawRelay(x0,c){
+  const g=el('g',{filter:'url(#fSh)'},panel);const id=c.id,p=id.toLowerCase();
+  box3d(g,x0+2,270,156,72,14,'#2c3135','#41474c','#1d2124',{rx:3});
+  box3d(g,x0+14,78,132,188,28,'rgba(225,238,245,.20)','rgba(235,245,250,.45)','rgba(180,200,210,.35)',{rx:6,stroke:'rgba(255,255,255,.65)','stroke-width':1.5});
+  el('rect',{x:x0+24,y:98,width:112,height:14,rx:2,fill:'#3a3f44'},g);
+  text(g,x0+80,108.5,id+'  DC24V','lbl',{fill:'#e8e8e8','font-size':9});
+  el('rect',{x:x0+28,y:150,width:42,height:100,rx:7,fill:'url(#gCopper)'},g);
+  for(let i=0;i<9;i++)el('line',{x1:x0+29,x2:x0+69,y1:158+i*10.5,y2:158+i*10.5,stroke:'#5a2a0c','stroke-width':.8,opacity:.55},g);
+  el('rect',{x:x0+40,y:138,width:18,height:14,fill:'#8b9094'},g);
+  const glow=el('rect',{x:x0+24,y:146,width:50,height:108,rx:9,fill:'none',stroke:'#ff9a3a','stroke-width':3,opacity:0},g);
+  el('path',{d:`M${x0+22} 252 L${x0+22} 128 L${x0+30} 128 L${x0+30} 244`,fill:'#8b9094'},g);
+  const arm=el('g',{class:'arm',style:`transform-origin:${x0+26}px 128px`},g);
+  el('rect',{x:x0+24,y:122,width:58,height:9,rx:2,fill:'#a9aeb2',stroke:'#6f7478'},arm);
+  el('rect',{x:x0+78,y:117,width:60,height:7,rx:2,fill:'#f2efe6',stroke:'#aaa'},arm);
+  const xs=[0,1,2,3].map(i=>x0+92+i*14);
+  xs.forEach((x,i)=>{
+    el('rect',{x:x-8,y:220,width:2.5,height:22,fill:'#9ba0a3'},g);el('circle',{cx:x-4.6,cy:228,r:2.3,fill:'#e6e6e6'},g);
+    el('rect',{x:x+5.5,y:220,width:2.5,height:22,fill:'#9ba0a3'},g);el('circle',{cx:x+4.6,cy:228,r:2.3,fill:'#e6e6e6'},g);
+    text(g,x,256,String(i+1),'lbl',{fill:'#ccc','font-size':8});
+  });
+  const bl=el('g',{class:'mov'},g);
+  xs.forEach(x=>{el('rect',{x:x-1.5,y:124,width:3,height:104,fill:'url(#gGold)'},bl);el('circle',{cx:x-1,cy:228,r:3,fill:'#d9d9d9',stroke:'#888'},bl);});
+  const led=el('circle',{cx:x0+134,cy:89,r:5,fill:'#5a2020',stroke:'#222'},g);
+  text(g,x0+116,92,'LED','lbl',{'font-size':7,fill:'#ddd'});
+  text(g,x0+4,54,id+' リレー','plate-t',{'font-size':13,'text-anchor':'start'});
+  const RP=ST.r2b?R2B:PAIRS.relay;
+  [...RP.map(q=>q[0]),'A1'].forEach((l,i)=>term(p+'_'+l,x0+22+i*29,294,[0,1],l));
+  [...RP.map(q=>q[1]),'A2'].forEach((l,i)=>term(p+'_'+l,x0+22+i*29,324,[0,1],l));
+  P[id]={arm,bl,led,glow};newTag(g,c,x0+90,54);
+}
+function drawTimer(x0,c){
+  const g=el('g',{filter:'url(#fSh)'},panel);const id=c.id,p=id.toLowerCase(),cx=x0+75,cy=160;
+  box3d(g,x0+2,270,146,72,14,'#2c3135','#41474c','#1d2124',{rx:3});
+  box3d(g,x0+12,82,126,184,24,'#e8e2d2','#f6f1e3','#b5ae9b',{rx:6});
+  el('rect',{x:x0+20,y:92,width:110,height:16,rx:2,fill:'#3a3f44'},g);
+  text(g,cx,103.5,id+(ST.offDelay&&ST.offDelay.includes(id)?' OFF-DELAY':' ON-DELAY'),'lbl',{fill:'#e8e8e8','font-size':8.5});
+  el('circle',{cx,cy,r:40,fill:'#f9f7f0',stroke:'#7d7666','stroke-width':2},g);
+  const arc=el('path',{d:'',fill:'none',stroke:'#ff8a1f','stroke-width':7},g);
+  for(let i=0;i<=10;i++){const a=(-225+27*i)*Math.PI/180;
+    el('line',{x1:cx+Math.cos(a)*30,y1:cy+Math.sin(a)*30,x2:cx+Math.cos(a)*36,y2:cy+Math.sin(a)*36,stroke:'#333','stroke-width':i%5?1:2},g);
+    if(i%2===0)text(g,cx+Math.cos(a)*22,cy+3+Math.sin(a)*22,String(i),'lbl',{'font-size':7.5});}
+  const ptr=el('line',{x1:cx,y1:cy,x2:cx,y2:cy-30,stroke:'#b2261c','stroke-width':3,'stroke-linecap':'round'},g);
+  el('circle',{cx,cy,r:6,fill:'#333'},g);
+  el('rect',{x:cx-28,y:212,width:56,height:20,rx:3,fill:'#1f2a22'},g);
+  const txt=text(g,cx,226.5,'0.0s','lbl',{fill:'#7fff95','font-size':12});
+  const on=el('circle',{cx:x0+30,cy:248,r:5,fill:'#1d3a22'},g);text(g,x0+30,262,'ON','lbl',{'font-size':7.5});
+  const up=el('circle',{cx:x0+120,cy:248,r:5,fill:'#3d2a14'},g);text(g,x0+120,262,'UP','lbl',{'font-size':7.5});
+  text(g,x0+4,54,id+' タイマー','plate-t',{'font-size':13,'text-anchor':'start'});
+  ['A1','15','16','18'].forEach((l,i)=>term(p+'_'+l,x0+22+i*35,294,[0,1],l));
+  ['A2','25','26','28'].forEach((l,i)=>term(p+'_'+l,x0+22+i*35,324,[0,1],l));
+  P[id]={arc,ptr,txt,on,up,cx,cy};newTag(g,c,x0+100,54);
+}
+function drawFan(x0,c){
+  const g=el('g',{filter:'url(#fSh)'},panel);const cx=x0+93,cy=165;
+  box3d(g,x0+50,300,92,38,10,'#d9d3c2','#ede8d8','#aaa492',{rx:3});
+  box3d(g,x0+8,80,170,170,24,'#30363a','#454c51','#1f2326',{rx:10});
+  el('circle',{cx,cy,r:74,fill:'#15181a'},g);
+  const bl=el('g',{},g);
+  for(let i=0;i<5;i++)el('path',{d:'M0 0 C 17 -25, 47 -46, 56 -25 C 60 -12, 30 -3, 0 0 Z',fill:'#5d666c',stroke:'#2a2f33',transform:`rotate(${i*72})`},bl);
+  el('circle',{cx:0,cy:0,r:15,fill:'#7b858b',stroke:'#2a2f33'},bl);
+  [26,48,70].forEach(rr=>el('circle',{cx,cy,r:rr,fill:'none',stroke:'#9aa3a8','stroke-width':1.6,opacity:.75},g));
+  el('line',{x1:cx-72,x2:cx+72,y1:cy,y2:cy,stroke:'#9aa3a8','stroke-width':1.6,opacity:.75},g);
+  el('line',{x1:cx,x2:cx,y1:cy-72,y2:cy+72,stroke:'#9aa3a8','stroke-width':1.6,opacity:.75},g);
+  [[x0+18,90],[x0+168,90],[x0+18,240],[x0+168,240]].forEach(([x,y])=>el('circle',{cx:x,cy:y,r:4,fill:'url(#gScrew)'},g));
+  text(g,x0+4,54,'ファン','plate-t',{'font-size':13,'text-anchor':'start'});
+  term('fan_1',x0+70,318,[0,1],'1');term('fan_2',x0+122,318,[0,1],'2');
+  P.FAN={bl,cx,cy};newTag(g,c,x0+56,54);
+}
+function drawMotor(x0,c){
+  const g=el('g',{filter:'url(#fSh)'},panel);const cx=x0+92,cy=158;
+  box3d(g,x0+24,300,140,38,10,'#d9d3c2','#ede8d8','#aaa492',{rx:3});
+  box3d(g,x0+10,86,166,160,24,'url(#gMotor)','#6f90b3','#22384f',{rx:12});
+  for(let i=0;i<7;i++)el('rect',{x:x0+18,y:96+i*7,width:150,height:3,fill:'#2a4563',opacity:.5},g);
+  el('circle',{cx,cy,r:50,fill:'#d6dade',stroke:'#2a2f33','stroke-width':3},g);
+  const disc=el('g',{},g);
+  el('path',{d:'M0 -46 A46 46 0 0 1 46 0 L0 0 Z',fill:'#ff8a1f',opacity:.9},disc);
+  el('path',{d:'M0 46 A46 46 0 0 1 -46 0 L0 0 Z',fill:'#ff8a1f',opacity:.9},disc);
+  el('circle',{cx:0,cy:0,r:10,fill:'#555'},disc);
+  el('rect',{x:cx-40,y:218,width:80,height:20,rx:3,fill:'#14202c'},g);
+  const txt=text(g,cx,232,'停止','plate-t',{'font-size':11,fill:'#9fd0ff'});
+  text(g,x0+4,54,'モーター(正転/逆転)','plate-t',{'font-size':13,'text-anchor':'start'});
+  term('m_F',x0+50,318,[0,1],'F');term('m_R',x0+94,318,[0,1],'R');term('m_C',x0+138,318,[0,1],'C');
+  P.M={g,disc,txt,cx,cy};
+  if(ST.heavy){const hb=el('g',{style:'cursor:pointer'},g);
+    el('rect',{x:x0+18,y:92,width:80,height:20,rx:4,fill:'#f4d21e',stroke:'#6a4d05'},hb);
+    P.M.ht=text(hb,x0+58,106,'負荷:軽い','plate-t',{'font-size':10.5});
+    hb.addEventListener('pointerdown',e=>{e.stopPropagation();ac();S.heavy=!S.heavy;click('tick');
+      say(S.heavy?'負荷を「重い」にしました。回し続けるとサーマルに熱がたまっていきます。':'負荷を「軽い」にしました。');});}newTag(g,c,x0+140,54);
+}
+function drawGate(x0,c){
+  const g=el('g',{filter:'url(#fSh)'},panel);
+  box3d(g,x0+58,300,96,38,10,'#d9d3c2','#ede8d8','#aaa492',{rx:3});
+  box3d(g,x0+6,80,198,180,20,'#bfdcf0','#d9ecf8','#86a8c0',{rx:8});
+  el('rect',{x:x0+6,y:212,width:198,height:48,fill:'#6f6a5c'},g);
+  el('rect',{x:x0+6,y:232,width:198,height:6,fill:'#9a9384'},g);
+  for(let i=0;i<6;i++)el('rect',{x:x0+90+i*18,y:216,width:10,height:3,fill:'#e8e2cf'},g);
+  el('rect',{x:x0+37,y:112,width:7,height:120,fill:'#e9e9e9',stroke:'#555'},g);
+  el('rect',{x:x0+30,y:224,width:22,height:10,fill:'#444'},g);
+  el('g',{},g).innerHTML=`<rect x="${x0+14}" y="101" width="54" height="9" fill="#f4d21e" stroke="#222" transform="rotate(25 ${x0+41} 105)"/><rect x="${x0+14}" y="101" width="54" height="9" fill="#f4d21e" stroke="#222" transform="rotate(-25 ${x0+41} 105)"/>`;
+  el('rect',{x:x0+20,y:126,width:42,height:22,rx:10,fill:'#222'},g);
+  const l1=el('circle',{cx:x0+30,cy:137,r:8,fill:'#4a1c18'},g),l2=el('circle',{cx:x0+52,cy:137,r:8,fill:'#4a1c18'},g);
+  const bar=el('g',{style:`transform-origin:${x0+44}px 190px`},g);
+  el('rect',{x:x0+44,y:186,width:150,height:8,rx:3,fill:'url(#pStripe)',stroke:'#222'},bar);
+  el('circle',{cx:x0+44,cy:190,r:6,fill:'#666',stroke:'#222'},g);
+  const ttl=text(g,x0+132,104,'','plate-t',{'font-size':12,fill:'#b2261c'});
+  text(g,x0+4,54,'踏切(遮断機)','plate-t',{'font-size':13,'text-anchor':'start'});
+  term('gate_1',x0+84,318,[0,1],'1');term('gate_2',x0+128,318,[0,1],'2');
+  P.GATE={bar,l1,l2,ttl};newTag(g,c,x0+104,54);
+}
+function drawPress(x0,c){
+  const g=el('g',{filter:'url(#fSh)'},panel);
+  box3d(g,x0+38,300,96,38,10,'#d9d3c2','#ede8d8','#aaa492',{rx:3});
+  box3d(g,x0+18,236,136,22,14,'#5d666c','#7b858b','#3d4448',{rx:2});
+  box3d(g,x0+126,92,24,146,12,'#e2b31c','#f4d21e','#a8820e');
+  box3d(g,x0+28,86,122,28,12,'#e2b31c','#f4d21e','#a8820e',{rx:3});
+  for(let i=0;i<6;i++)el('rect',{x:x0+34+i*20,y:90,width:10,height:4,fill:'#1c1c1c',opacity:.6},g);
+  const work=el('rect',{x:x0+56,y:218,width:52,height:18,rx:2,fill:'#b98a5a',stroke:'#6b4a2a'},g);
+  const ram=el('g',{},g);
+  el('rect',{x:x0+72,y:114,width:20,height:38,fill:'#c0c6ca',stroke:'#555'},ram);
+  el('rect',{x:x0+52,y:150,width:60,height:14,rx:2,fill:'#7b858b',stroke:'#333'},ram);
+  text(g,x0+4,54,'プレス機','plate-t',{'font-size':13,'text-anchor':'start'});
+  term('press_1',x0+62,318,[0,1],'1');term('press_2',x0+110,318,[0,1],'2');
+  P.PRESS={ram,work};newTag(g,c,x0+64,54);
+}
+function drawConveyor(x0,c){
+  const g=el('g',{filter:'url(#fSh)'},panel);
+  box3d(g,x0+40,300,220,38,10,'#d9d3c2','#ede8d8','#aaa492',{rx:3});
+  const xs=x0+16,xe=x0+284,by=200,sx=x0+214;
+  box3d(g,x0+4,84,292,190,18,'#cfdbe3','#e2ebf1','#93a7b5',{rx:8});
+  el('rect',{x:x0+4,y:250,width:292,height:24,fill:'#9aa0a4',opacity:.5},g);
+  [x0+44,x0+256].forEach(x=>el('rect',{x:x-4,y:by+20,width:8,height:62,fill:'#7b858b'},g));
+  el('rect',{x:sx+20,y:104,width:6,height:96,fill:'#7b858b'},g);
+  el('rect',{x:sx-12,y:104,width:38,height:8,fill:'#7b858b'},g);
+  el('rect',{x:sx-12,y:112,width:24,height:20,rx:3,fill:'#2c3135'},g);
+  const beam=el('line',{x1:sx,y1:132,x2:sx,y2:by,stroke:'#ff3b2b','stroke-width':2,'stroke-dasharray':'3 4',opacity:.45},g);
+  const led=el('circle',{cx:sx+6,cy:118,r:3,fill:'#552'},g);
+  text(g,sx-16,124,'PH','lbl',{'text-anchor':'end','font-size':9});
+  el('rect',{x:xs,y:by,width:xe-xs,height:22,rx:11,fill:'#2b2f32'},g);
+  const belt=el('line',{x1:xs+10,y1:by+2,x2:xe-10,y2:by+2,stroke:'#6d757a','stroke-width':3,'stroke-dasharray':'8 10'},g);
+  const rollers=[xs+11,xe-11].map(x=>{el('circle',{cx:x,cy:by+11,r:9,fill:'#9aa3a8',stroke:'#444'},g);return el('line',{x1:x-7,y1:by+11,x2:x+7,y2:by+11,stroke:'#444','stroke-width':2},g);});
+  el('rect',{x:x0+60,y:by+28,width:30,height:24,rx:3,fill:'#3b5d82',stroke:'#22384f'},g);text(g,x0+75,by+44,'M','lbl',{fill:'#fff'});
+  const layer=el('g',{},g);
+  text(g,x0+4,54,'ベルトコンベア','plate-t',{'font-size':13,'text-anchor':'start'});
+  [['1','M'],['2','M'],['a1','a'],['a2','a'],['b1','b'],['b2','b']].forEach(([n,l],i)=>term('conv_'+n,x0+60+i*36,318,[0,1],l));
+  P.CONV={belt,rollers,beam,led,layer,xs,xe,by,sx,boxEls:new Map()};newTag(g,c,x0+106,54);
+}
+function drawThermal(x0,c){
+  const g=el('g',{filter:'url(#fSh)'},panel);
+  box3d(g,x0+18,300,116,38,10,'#d9d3c2','#ede8d8','#aaa492',{rx:3});
+  box3d(g,x0+14,96,124,170,22,'#e8e2d2','#f6f1e3','#b5ae9b',{rx:6});
+  el('rect',{x:x0+22,y:106,width:108,height:16,rx:2,fill:'#3a3f44'},g);
+  text(g,x0+76,117.5,'THR  THERMAL','lbl',{fill:'#e8e8e8','font-size':8.5});
+  text(g,x0+30,146,'たまった熱','plate-t',{'font-size':10,'text-anchor':'start'});
+  el('rect',{x:x0+28,y:152,width:96,height:14,rx:3,fill:'#2c3135'},g);
+  const bar=el('rect',{x:x0+30,y:154,width:0,height:10,rx:2,fill:'#f4c542'},g);
+  const flag=el('rect',{x:x0+24,y:190,width:52,height:24,rx:3,fill:'#2c3135'},g);
+  const flagT=text(g,x0+50,206,'正常','plate-t',{'font-size':11,fill:'#9be59f'});
+  const btn=el('g',{style:'cursor:pointer'},g);
+  el('circle',{cx:x0+108,cy:202,r:18,fill:'#1f4f8a',stroke:'#0d2a4a','stroke-width':2},btn);
+  text(btn,x0+108,205,'RESET','plate-t',{'font-size':8,fill:'#fff'});
+  btn.addEventListener('pointerdown',e=>{e.stopPropagation();ac();
+    if(!S.thr.trip){say('サーマルは正常です。');return;}
+    if(S.thr.heat>.6){click('tick');say('まだ熱いのでリセットできません。熱が下がるまで少し待とう。');return;}
+    S.thr.trip=false;click('off');say('サーマルをリセットしました。起動ボタンでまた動かせます。');});
+  text(g,x0+4,54,'THR サーマル','plate-t',{'font-size':13,'text-anchor':'start'});
+  ['95','96','97','98'].forEach((n,i)=>term('thr_'+n,x0+34+i*28,318,[0,1],n));
+  P.THR={bar,flag,flagT};newTag(g,c,x0+94,54);
+}
+function drawShutter(x0,c){
+  const g=el('g',{filter:'url(#fSh)'},panel);
+  box3d(g,x0+8,300,186,38,10,'#d9d3c2','#ede8d8','#aaa492',{rx:3});
+  const body=el('g',{},g);
+  box3d(body,x0+6,80,180,180,22,'#d8cdb5','#e9e0cb','#a89c82',{rx:6});
+  for(let i=0;i<9;i++)el('line',{x1:x0+6,x2:x0+186,y1:96+i*18,y2:96+i*18,stroke:'#c4b89e'},body);
+  el('rect',{x:x0+30,y:110,width:100,height:140,fill:'#2a2622'},body);
+  el('path',{d:`M${x0+42} 240 L${x0+48} 222 L${x0+68} 212 L${x0+98} 212 L${x0+112} 224 L${x0+118} 240 Z`,fill:'#c8402e'},body);
+  el('rect',{x:x0+66,y:216,width:30,height:8,rx:2,fill:'#9fd0ff'},body);
+  el('circle',{cx:x0+56,cy:242,r:7,fill:'#111'},body);el('circle',{cx:x0+104,cy:242,r:7,fill:'#111'},body);
+  const slat=el('rect',{x:x0+30,y:110,width:100,height:140,fill:'url(#pSlat)'},body);
+  const edge=el('rect',{x:x0+28,y:246,width:104,height:5,fill:'#555'},body);
+  el('rect',{x:x0+24,y:96,width:112,height:16,rx:3,fill:'#7c8387',stroke:'#4a4f52'},body);
+  const mot=el('g',{},body);
+  el('circle',{cx:x0+152,cy:102,r:12,fill:'#3b5d82',stroke:'#22384f'},body);
+  text(body,x0+152,106,'M','lbl',{fill:'#fff'});
+  const ls=(y,lab)=>{el('rect',{x:x0+140,y:y-9,width:22,height:18,rx:2,fill:'#e2b31c',stroke:'#6a4d05'},body);
+    const lev=el('line',{x1:x0+140,y1:y,x2:x0+129,y2:y-9,stroke:'#333','stroke-width':2.5,'stroke-linecap':'round'},body);
+    const led=el('circle',{cx:x0+156,cy:y-3,r:3,fill:'#552'},body);
+    text(body,x0+166,y+4,lab,'lbl',{'text-anchor':'start','font-size':9});return {lev,led,y};};
+  const ls1=ls(120,'LS1'),ls2=ls(244,'LS2');
+  text(g,x0+4,54,'シャッター','plate-t',{'font-size':13,'text-anchor':'start'});
+  ['U','D','C','l11','l12','l21','l22'].forEach((n,i)=>term('sh_'+n,x0+22+i*26,318,[0,1],{U:'U',D:'D',C:'C',l11:'L1',l12:'L1',l21:'L2',l22:'L2'}[n]));
+  P.SH={body,slat,edge,ls1,ls2,x0};newTag(g,c,x0+86,54);
+}
+function drawTank(x0,c){
+  const g=el('g',{filter:'url(#fSh)'},panel);
+  box3d(g,x0+6,300,208,38,10,'#d9d3c2','#ede8d8','#aaa492',{rx:3});
+  const tx=x0+74,ty=94,tw=92,th=156;
+  const pipe=`M${x0+32} 218 L${x0+32} 80 L${tx+30} 80 L${tx+30} ${ty+4}`;
+  el('path',{d:pipe,fill:'none',stroke:'#8b9094','stroke-width':9,'stroke-linejoin':'round'},g);
+  const flow=el('path',{d:pipe,fill:'none',stroke:'#7fc4ff','stroke-width':3.5,'stroke-dasharray':'4 8',opacity:0},g);
+  el('path',{d:`M${tx+tw} 240 L${x0+198} 240 L${x0+198} 256`,fill:'none',stroke:'#8b9094','stroke-width':9,'stroke-linejoin':'round'},g);
+  el('rect',{x:x0+178,y:226,width:16,height:26,rx:2,fill:'#2c3135'},g);
+  text(g,x0+186,262,'SV','lbl',{'font-size':8});
+  const svLed=el('circle',{cx:x0+186,cy:232,r:3,fill:'#1d3a22'},g);
+  const drops=[0,1,2].map(()=>el('ellipse',{cx:x0+198,cy:262,rx:2.5,ry:4,fill:'#5fb0ff',opacity:0},g));
+  const water=el('rect',{x:tx,y:ty+th,width:tw,height:0,fill:'#3d8fd6',opacity:.85},g);
+  const wave=el('rect',{x:tx,y:ty+th,width:tw,height:3,fill:'#9fd4ff',opacity:.9},g);
+  const lv=f=>ty+th*(1-f);
+  const fl=f=>{el('line',{x1:tx+tw-14,y1:ty,x2:tx+tw-14,y2:lv(f)+12,stroke:'#555','stroke-width':1.5},g);
+    return {ball:el('circle',{cx:tx+tw-14,cy:lv(f),r:6,fill:'#ffb347',stroke:'#7a4a00'},g),L:lv(f)};};
+  const f2=fl(.9),f1=fl(.2);
+  box3d(g,tx-2,ty-2,tw+4,th+4,16,'rgba(225,238,245,.16)','rgba(235,245,250,.45)','rgba(180,200,210,.35)',{rx:4,stroke:'rgba(255,255,255,.75)','stroke-width':1.5});
+  [[.9,'FS2 満水'],[.2,'FS1 減水']].forEach(([f,lab])=>{
+    el('line',{x1:tx,x2:tx+tw,y1:lv(f),y2:lv(f),stroke:'#fff','stroke-dasharray':'3 4',opacity:.6},g);
+    text(g,tx+5,lv(f)-3,lab,'lbl',{'text-anchor':'start'});
+  });
+  el('circle',{cx:x0+32,cy:236,r:20,fill:'#3b5d82',stroke:'#22384f','stroke-width':2},g);
+  const imp=el('g',{},g);
+  for(let i=0;i<4;i++)el('rect',{x:-2,y:-14,width:4,height:14,rx:2,fill:'#cfe3f5',transform:`rotate(${i*90})`},imp);
+  el('circle',{cx:x0+32,cy:236,r:4,fill:'#cfe3f5'},g);
+  text(g,x0+32,272,'ポンプ','plate-t',{'font-size':10});
+  text(g,x0+4,54,'給水タンク','plate-t',{'font-size':13,'text-anchor':'start'});
+  ['p1','p2','v1','v2','f11','f12','f21','f22'].forEach((n,i)=>term('tk_'+n,x0+22+i*25,318,[0,1],{p1:'P',p2:'P',v1:'V',v2:'V',f11:'F1',f12:'F1',f21:'F2',f22:'F2'}[n]));
+  P.TK={water,wave,flow,drops,svLed,imp,f1,f2,tx,ty,tw,th,px:x0+32,off:0};newTag(g,c,x0+90,54);
+}
+function drawOps(){
+  const op=el('g',{filter:'url(#fSh)'},panel);
+  box3d(op,214,480,724,150,14,'url(#gAlu)','#eef0ed','#a7aaa6',{rx:6});
+  const n=ST.ops.length,step=724/n;
+  ST.ops.forEach(([id,type,kind,name,col],i)=>{
+    const cx=214+step*(i+.5),cy=558,p=id.toLowerCase();const c=COMPS[id];
+    const g=el('g',{},op);g.addEventListener('click',()=>showPart(kindsOf(id)[0]));
+    el('rect',{x:cx-42,y:492,width:84,height:28,rx:4,fill:'#d4d0c4',stroke:'#a9a598'},g);
+    if(type!=='pb'&&type!=='sw'&&type!=='emg'){
+      el('circle',{cx,cy,r:42,fill:'#2d3236'},g);
+      el('circle',{cx,cy,r:36,fill:'#7d8387',stroke:'#4a4f52','stroke-width':4,'stroke-dasharray':'2 2.4'},g);
+    }
+    if(type==='pb'){
+      el('rect',{x:cx-41,y:cy-41,width:82,height:82,rx:8,fill:'#2d3236'},g);
+      el('rect',{x:cx-35,y:cy-35,width:70,height:70,rx:6,fill:'#b9bec1',stroke:'#5b6064'},g);
+      el('rect',{x:cx-30,y:cy-30,width:60,height:60,rx:5,fill:'#1a1d1f'},g);
+      const b=el('g',{class:'btn'},g);
+      el('rect',{x:cx-26,y:cy-22,width:52,height:52,rx:7,fill:{g:'#145a24',r:'#6a100a',y:'#6a4d05'}[col]},b);
+      const cap=el('g',{class:'cap'},b);
+      el('rect',{x:cx-26,y:cy-28,width:52,height:52,rx:7,fill:`url(#gBtn_${col})`,stroke:'rgba(0,0,0,.35)'},cap);
+      el('rect',{x:cx-20,y:cy-24,width:30,height:8,rx:4,fill:'#fff',opacity:.35},cap);
+      text(cap,cx,cy+6,kind==='b'?'切':'入','plate-t',{'font-size':18,fill:col==='y'?'#4a3600':'#ffffff'});
+      b.addEventListener('pointerdown',e=>{
+        e.preventDefault();e.stopPropagation();ac();
+        if(e.isTrusted)b.setPointerCapture(e.pointerId);
+        holdInput('p'+e.pointerId,id);
+      });
+      P[id]={b};
+      term(p+'_1',cx-22,506,[0,-1],'1');term(p+'_2',cx+22,506,[0,-1],'2');
+    }else if(type==='sw'){
+      el('rect',{x:cx-41,y:cy-41,width:82,height:82,rx:8,fill:'#2d3236'},g);
+      el('rect',{x:cx-35,y:cy-35,width:70,height:70,rx:6,fill:'#b9bec1',stroke:'#5b6064'},g);
+      const [l0,l1]=(col||'閉|開').split('|');
+      text(g,cx-21,cy-23,l0,'plate-t',{'font-size':10});text(g,cx+21,cy-23,l1,'plate-t',{'font-size':10});
+      const b=el('g',{class:'btn'},g);
+      el('circle',{cx,cy:cy+3,r:23,fill:'#111'},b);
+      const knob=el('g',{},b);
+      el('rect',{x:cx-8,y:cy-25,width:16,height:50,rx:7,fill:'#ececec',stroke:'#555'},knob);
+      el('rect',{x:cx-2,y:cy-22,width:4,height:13,rx:1,fill:'#d8352a'},knob);
+      b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();ac();S.press[id]=!S.press[id];click('tick');
+        const [l0,l1]=(col||'閉|開').split('|');say(`${name}スイッチを「${S.press[id]?l1:l0}」にしました。`);});
+      P[id]={b,knob,cx,cy};
+      term(p+'_1',cx-22,506,[0,-1],'1');term(p+'_2',cx+22,506,[0,-1],'2');
+    }else if(type==='emg'){
+      el('circle',{cx,cy,r:44,fill:'#f4d21e',stroke:'#8a6508','stroke-width':2},g);
+      const b=el('g',{class:'btn'},g);
+      el('circle',{cx,cy:cy+7,r:31,fill:'#6a100a'},b);
+      const cap=el('g',{class:'cap'},b);
+      el('circle',{cx,cy,r:31,fill:'url(#gBtn_r)',stroke:'rgba(0,0,0,.35)'},cap);
+      el('ellipse',{cx:cx-9,cy:cy-13,rx:13,ry:6,fill:'#fff',opacity:.35},cap);
+      text(cap,cx,cy+5,'非常','plate-t',{'font-size':12,fill:'#fff'});
+      b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();ac();S.emg=!S.emg;click(S.emg?'trip':'tick');
+        say(S.emg?'<b>非常停止!</b> ボタンがロックされました。もう一度クリックすると回して解除します。':S.press.PB1?'非常停止を解除しました。起動ボタンが押されているため再始動します。':'非常停止を解除しました。起動ボタンを押すと再スタートします。',S.emg);});
+      P[id]={b};
+      [1,2,3,4].forEach((n,k)=>term(p+'_'+n,cx-33+k*22,506,[0,-1],String(n)));
+    }else if(type==='lamp'){
+      const lens=el('circle',{cx,cy,r:26,fill:`url(#gOff_${col})`,stroke:'#222','stroke-width':2},g);
+      [8,14,20].forEach(rr=>el('circle',{cx,cy,r:rr,fill:'none',stroke:'#fff','stroke-width':1.2,opacity:.22},g));
+      el('ellipse',{cx:cx-9,cy:cy-12,rx:9,ry:4.5,fill:'#fff',opacity:.45},g);
+      const glow=el('circle',{cx,cy,r:70,fill:`url(#gGlow_${col})`,opacity:0,'pointer-events':'none'});
+      P.glows.push(glow);P[id]={lens,glow,col};
+      term(p+'_X1',cx-22,506,[0,-1],'X1');term(p+'_X2',cx+22,506,[0,-1],'X2');
+    }else{
+      el('circle',{cx,cy,r:30,fill:'#1d1f21',stroke:'#444'},g);
+      for(let k=0;k<12;k++){const a=k*30*Math.PI/180;el('circle',{cx:cx+Math.cos(a)*17,cy:cy+Math.sin(a)*17,r:2.2,fill:'#000'},g);}
+      el('circle',{cx,cy,r:4,fill:'#000'},g);
+      const rings=el('g',{opacity:0,'pointer-events':'none'},g);
+      [36,46,56].forEach(r=>el('circle',{cx,cy,r,fill:'none',stroke:'#ffb347','stroke-width':2.5},rings));
+      P[id]={rings};
+      term(p+'_1',cx-22,506,[0,-1],'1');term(p+'_2',cx+22,506,[0,-1],'2');
+    }
+    el('rect',{x:cx-50,y:608,width:100,height:20,rx:3,fill:'#202427'},g);
+    text(g,cx,622.5,`${name} ${id}`,'plate-t',{'font-size':11,fill:'#f0f0f0'});
+    newTag(g,c,cx+26,510);
+  });
+}
+
+function buildPanel(){
+  panel.innerHTML='';T={};P={delay:.1,newtags:[],glows:[]};
+  el('defs',{},panel).innerHTML=DEFS;
+  el('rect',{x:0,y:0,width:980,height:650,fill:'url(#gPlate)'},panel);
+  el('rect',{x:0,y:0,width:980,height:650,fill:'url(#pHole)',opacity:.35},panel);
+  el('rect',{x:210,y:145,width:740,height:22,fill:'#9ea3a6',stroke:'#7c8184'},panel);
+  el('rect',{x:210,y:151,width:740,height:10,fill:'#b8bdc0'},panel);
+  el('rect',{x:210,y:300,width:740,height:190,fill:'#9aa09c',opacity:.25,rx:4},panel);
+  // 電源
+  const ps=el('g',{filter:'url(#fSh)',style:'cursor:help',transform:'translate(0 -35)'},panel);ps.addEventListener('click',()=>showPart('breaker'));
+  box3d(ps,30,60,140,170,16,'#e6e4dc','#f6f4ec','#b9b7af',{rx:4});
+  text(ps,100,86,'DC24V 電源','plate-t',{'font-size':13});
+  el('rect',{x:62,y:105,width:76,height:105,rx:6,fill:'#2e3337'},ps);
+  const brk=el('g',{class:'brk'},ps);
+  el('rect',{x:84,y:120,width:32,height:72,rx:5,fill:'#14171a'},brk);
+  P.lever=el('g',{class:'lever',style:'transform-origin:100px 156px'},brk);
+  el('rect',{x:91,y:122,width:18,height:34,rx:4,fill:'#f0f0ea',stroke:'#999'},P.lever);
+  P.brkTxt=text(ps,100,205,'ON','plate-t',{'font-size':11,fill:'#9be59f'});
+  text(ps,100,116,'ブレーカー','plate-t',{'font-size':9,fill:'#c9cdd0'});
+  brk.addEventListener('pointerdown',e=>{e.stopPropagation();ac();S.breaker=!S.breaker;S.tripped=false;click(S.breaker?'on':'off');
+    say(S.breaker?'ブレーカーON。電気が来ました。':'ブレーカーOFF。全部止まります。');});
+  // 端子台
+  const rows=Math.max(DGL.pCount,DGL.nCount),stp=Math.min(62,280/Math.max(1,rows-1));
+  const tb=el('g',{filter:'url(#fSh)',style:'cursor:help'},panel);tb.addEventListener('click',()=>showPart('tb'));
+  box3d(tb,48,262,100,330,12,'#d9d3c2','#ede8d8','#aaa492',{rx:3});
+  text(tb,70,281,'+24V','plate-t',{'font-size':11,'text-anchor':'end',fill:'#8b201a'});
+  text(tb,129,281,'0V','plate-t',{'font-size':11,'text-anchor':'start',fill:'#1c3f80'});
+  for(let i=0;i<rows-1;i++)el('line',{x1:52,x2:144,y1:300+(i+.5)*stp,y2:300+(i+.5)*stp,stroke:'#b8b19c'},tb);
+  el('path',{d:'M78 195 L78 292',stroke:'#7d1e17','stroke-width':7,fill:'none'},panel);
+  el('path',{d:'M122 195 L122 292',stroke:'#1c3f80','stroke-width':7,fill:'none'},panel);
+  el('rect',{x:73,y:292,width:10,height:(rows-1)*stp+16,fill:'#c9a646',opacity:.55},panel);
+  el('rect',{x:117,y:292,width:10,height:(rows-1)*stp+16,fill:'#c9a646',opacity:.55},panel);
+  for(let i=0;i<DGL.pCount;i++)term('P'+(i+1),78,300+i*stp,[1,0],'','P');
+  for(let i=0;i<DGL.nCount;i++)term('N'+(i+1),122,300+i*stp,[1,0],'','N');
+  // ユニット
+  const ws=ST.units.map(id=>UW[COMPS[id].type]);const sum=ws.reduce((a,b)=>a+b,0);
+  const gap=Math.min(36,(738-sum)/(ws.length+1));let x=210+(740-sum-gap*(ws.length-1))/2;
+  ST.units.forEach((id,i)=>{const c=COMPS[id];const n0=panel.childNodes.length;({relay:drawRelay,timer:drawTimer,fan:drawFan,motor:drawMotor,gate:drawGate,shutter:drawShutter,tank:drawTank,press:drawPress,conveyor:drawConveyor,thermal:drawThermal})[c.type](x,c);
+    const unit=el('g',{transform:'translate(0 -35)'},panel);
+    [...panel.childNodes].slice(n0).filter(nd=>nd!==unit).forEach(nd=>{
+      unit.appendChild(nd);nd.style.cursor='help';nd.addEventListener('click',()=>showPart(kindsOf(id)[0]));
+    });
+    x+=ws[i]+gap;
+  });
+  for(const t of Object.values(T)){
+    if(t.dir[1]===1){t.originalY=t.y;t.y-=35;}
+  }
+  P.newtags.forEach(t=>t.setAttribute('y',Number(t.getAttribute('y'))-35));
+  drawOps();
+  P.glows.forEach(g=>panel.appendChild(g));
+  P.wires=el('g',{filter:'url(#fWire)'},panel);
+  P.terms=el('g',{},panel);
+  for(const id in T){
+    const t=T[id];const g=el('g',{class:'term','aria-label':tname(id)},P.terms);
+    el('circle',{cx:t.x,cy:t.y,r:12,fill:'transparent'},g);
+    el('circle',{cx:t.x,cy:t.y,r:7.5,fill:'url(#gScrew)',stroke:'#4a4f52'},g);
+    el('line',{x1:t.x-4.5,y1:t.y-4.5,x2:t.x+4.5,y2:t.y+4.5,stroke:'#4a4f52','stroke-width':1.6},g);
+    el('circle',{cx:t.x,cy:t.y,r:12,class:'ring'},g);
+    if(t.label){let ly=t.y-12,fill='#2a2f33';
+      if(t.dir[1]===1){const row=t.originalY??t.y;ly=row<310?t.y-11:t.y+19;fill=row===318?'#2a2f33':'#e2e2e2';if(row===318)ly=t.y+21;}
+      text(g,t.x,ly,t.label,'lbl',{fill,stroke:fill==='#2a2f33'?'#e6e3da':'#2c3135'});}
+    g.addEventListener('pointerdown',e=>{e.stopPropagation();ac();termClick(id);});
+    t.g=g;
+  }
+  P.newtags.forEach(t=>panel.appendChild(t));
+}
+
+/* 線 */
+/* 配線はすべて配線ダクト(y=310〜480)を通す */
+function exitPts(t,i,laneY){
+  if(t.dir[0]===1){const vx=158+(i%16)*3.2;return [[t.x,t.y],[vx,t.y],[vx,laneY]];}
+  if(t.dir[1]===-1)return [[t.x,t.y],[t.x,laneY]];
+  if((t.originalY??t.y)<300){const jx=t.x+13;return [[t.x,t.y],[t.x,t.y+13],[jx,t.y+13],[jx,laneY]];}
+  return [[t.x,t.y],[t.x,laneY]];
+}
+function rounded(pts,r){
+  const p=pts.filter((q,i)=>i===0||q[0]!==pts[i-1][0]||q[1]!==pts[i-1][1]);
+  let d=`M${p[0][0]} ${p[0][1]}`;
+  for(let i=1;i<p.length-1;i++){
+    const [a,b,c]=[p[i-1],p[i],p[i+1]];
+    const l1=Math.hypot(b[0]-a[0],b[1]-a[1]),l2=Math.hypot(c[0]-b[0],c[1]-b[1]);
+    const rr=Math.min(r,l1/2,l2/2);
+    const s=[b[0]+(a[0]-b[0])/l1*rr,b[1]+(a[1]-b[1])/l1*rr],e=[b[0]+(c[0]-b[0])/l2*rr,b[1]+(c[1]-b[1])/l2*rr];
+    d+=` L${s[0].toFixed(1)} ${s[1].toFixed(1)} Q${b[0]} ${b[1]} ${e[0].toFixed(1)} ${e[1].toFixed(1)}`;
+  }
+  const z=p[p.length-1];return d+` L${z[0]} ${z[1]}`;
+}
+function wirePath(w,i){
+  const a=T[w.a],b=T[w.b];const n=Math.max(wires.length,2);
+  const laneY=310+(i%n)*(170/(n-1));
+  const A=exitPts(a,i,laneY),B=exitPts(b,i+7,laneY).reverse();
+  return rounded([...A,...B],9);
+}
+function wireColor(w){if(!w.orig)return '#8fe07a';if(node(w.a)==='P'||node(w.b)==='P')return '#d8352a';if(node(w.a)==='N'||node(w.b)==='N')return '#2f6fd6';return '#e8c23a';}
+const WG={};
+function buildWires(){
+  P.wires.innerHTML='';for(const k in WG)delete WG[k];
+  wires.forEach((w,i)=>{
+    const g=el('g',{class:'wire'+(w.cut?' cut':'')},P.wires);const d=wirePath(w,i);
+    el('path',{d,class:'halo'},g);el('path',{d,class:'ol'},g);el('path',{d,class:'core',stroke:wireColor(w)},g);
+    el('path',{d,class:'shine'},g);const flow=el('path',{d,class:'flow'},g);el('path',{d,class:'hit'},g);
+    g.addEventListener('pointerdown',e=>{e.stopPropagation();ac();wireClick(w);});
+    g.addEventListener('pointerenter',()=>{hl(w.id,true);say(roleText(w));});
+    g.addEventListener('pointerleave',()=>hl(w.id,false));
+    WG[w.id]={g,flow,off:0};
+  });
+}
+function roleText(w,diagram=false){
+  if(!w.orig)return `あなたが足した線(${tname(w.a)} ↔ ${tname(w.b)})。クリックで外せます。`;
+  const role=ST.faults&&!diagram?`盤の接続：${tname(w.a)} ↔ ${tname(w.b)}`:w.role;
+  return `<b>線${w.n}</b>　${role}${w.cut?'<br><span style="color:#ffb27a">今は抜いてあります。クリックで戻せます。</span>':''}`;
+}
+
+/* ===================== 展開接続図 ===================== */
+const DG={};
+function buildDiagram(referenceWires){
+  diag.innerHTML='';for(const k in DG)delete DG[k];
+  const H=DGL.h+16;diag.setAttribute('viewBox',`0 0 480 ${H}`);
+  const g=el('g',{},diag);
+  DG.busP=el('line',{x1:DGL.XP,y1:22,x2:DGL.XP,y2:H-8,class:'seg'},g);
+  el('line',{x1:DGL.XN,y1:22,x2:DGL.XN,y2:H-8,class:'seg'},g);
+  text(g,DGL.XP,15,'+24V','',{'text-anchor':'middle','font-weight':700,fill:'#b2261c'});
+  text(g,DGL.XN,15,'0V','',{'text-anchor':'middle','font-weight':700,fill:'#2453a8'});
+  DG.fixed=[];
+  DGL.segs.forEach(s=>{
+    const d='M'+s.pts.map(p=>p.join(' ')).join(' L');
+    const p=el('path',{d,class:'seg'},g);
+    if(!s.id){DG.fixed.push({p,node:s.node});return;}
+    (DG[s.id]=DG[s.id]||[]).push(p);
+    const h=el('path',{d,class:'hitd'},g);
+    const w=referenceWires.find(w=>w.id===s.id);
+    if(ST.blank){
+      const showEnds=()=>{$('referenceEnds').textContent=`線${w.n}　${tname(w.a)} ↔ ${tname(w.b)}`;};
+      h.addEventListener('pointerenter',showEnds);h.addEventListener('click',showEnds);
+      return;
+    }
+    h.addEventListener('pointerenter',()=>{hl(s.id,true);say(roleText(w,true));});
+    h.addEventListener('pointerleave',()=>hl(s.id,false));
+    h.addEventListener('click',()=>{ac();wireClick(w);});
+  });
+  // 線番号(各線の最初の区間)
+  const done=new Set();
+  DGL.segs.forEach(s=>{if(!s.id||done.has(s.id))return;done.add(s.id);const w=referenceWires.find(w=>w.id===s.id);
+    let best=null;for(let i=0;i<s.pts.length-1;i++){const [a,b]=[s.pts[i],s.pts[i+1]];if(a[1]===b[1]&&Math.abs(b[0]-a[0])>14){best=[(a[0]+b[0])/2,a[1]+15];break;}}
+    if(!best){const a=s.pts[0],b=s.pts[1];best=[a[0]-7,(a[1]+b[1])/2+3];}
+    text(g,best[0],best[1],String(w.n),'mono',{'text-anchor':'middle'});});
+  DGL.dots.forEach(([x,y])=>el('circle',{cx:x,cy:y,r:3,fill:'#2c2c2c'},g));
+  DG.contacts=[];DG.loads={};
+  DGL.els.forEach(e=>{
+    if(e.k==='c'){
+      const c=e.c,x=e.x,y=e.y,grp=el('g',{},g);
+      el('circle',{cx:x,cy:y,r:2.4,fill:'#2c2c2c'},grp);el('circle',{cx:x+30,cy:y,r:2.4,fill:'#2c2c2c'},grp);
+      if(c.kind==='b')el('line',{x1:x+30,y1:y-11,x2:x+30,y2:y,stroke:'#2c2c2c','stroke-width':2},grp);
+      const bl=el('line',{x1:x,y1:y,x2:c.kind==='a'?x+28:x+31,y2:c.kind==='a'?y-12:y,class:'blade'},grp);
+      const isPB=c.comp.startsWith('PB')||c.comp.startsWith('SW'),isT=/^T\d/.test(c.comp);
+      if(isPB)el('path',{d:`M${x+15} ${y-5} L${x+15} ${y-16} M${x+9} ${y-16} L${x+21} ${y-16}`,stroke:'#2c2c2c','stroke-width':1.5,'stroke-dasharray':'3 2',fill:'none'},grp);
+      if(isT)el('path',{d:`M${x+10} ${y-19} l5 7 l5 -7 z`,fill:'none',stroke:'#2c2c2c','stroke-width':1.3},grp);
+      const buttonName=isPB?COMPS[c.comp].name:'';
+      const separateId=buttonName.includes(' ');
+      if(separateId)text(grp,x+15,y-39,c.comp,'',{'text-anchor':'middle'});
+      const lab=c.dlabel||(isPB?(separateId?buttonName:`${c.comp} ${buttonName}`):`${c.comp} ${c.key.split(':')[1]}`);
+      text(grp,x+15,y-(isT?26:isPB?22:20),lab,'',{'text-anchor':'middle'});
+      DG.contacts.push({c,bl,x,y,grp});
+    }else{
+      const x=e.x,y=e.y,grp=el('g',{},g);const k=e.key;
+      const circ=el('circle',{cx:x,cy:y,r:15,fill:'#fff',stroke:'#2c2c2c','stroke-width':2.2},grp);
+      let col='#ffcf9a',lab='';
+      if(COMPS[k]?.type==='lamp'){el('path',{d:`M${x-10} ${y-10} L${x+10} ${y+10} M${x+10} ${y-10} L${x-10} ${y+10}`,stroke:'#2c2c2c','stroke-width':1.5},grp);
+        col={g:'#3ad35a',r:'#ff4a35',y:'#ffd23a'}[COMPS[k].col];lab=`${k} ${COMPS[k].name}`;}
+      else{const inner={FAN:'M','M:F':'M','M:R':'M',GATE:'G',BZ:'BZ','SH:U':'M','SH:D':'M',PUMP:'P',SV:'SV',PRESS:'M',CONV:'M'}[k]||k;
+        text(grp,x,y+4,inner,'',{'text-anchor':'middle','font-weight':700,'font-size':inner.length>1?10:11.5});
+        lab={FAN:'ファン','M:F':'モーター正転','M:R':'モーター逆転',GATE:'遮断機',BZ:'ブザー','SH:U':'シャッター上昇','SH:D':'シャッター下降',PUMP:'ポンプ',SV:'電磁弁(蛇口)',PRESS:'プレス機',CONV:'コンベア'}[k]||'';}
+      if(lab)text(grp,x,y-20,lab,'',{'text-anchor':'middle','font-size':9.5});
+      DG.loads[k]={circ,col};
+      if(/^T\d$/.test(k))DG.loads[k].txt=text(grp,x-20,y-6,'','mono',{'text-anchor':'end',fill:'#b25a00'});
+    }
+  });
+  DG.note=text(g,240,H-4,'','',{'text-anchor':'middle',fill:'#7a4a00','font-size':10});
+}
+function hl(id,on){if(WG[id])WG[id].g.classList.toggle('hl',on);(DG[id]||[]).forEach?.(p=>p.classList.toggle('hl',on));}
+
+const UNIT_KINDS={relay:['relay'],timer:['timer'],fan:['motor'],motor:['motor'],gate:['motor'],press:['motor'],shutter:['limit','motor'],tank:['float','sv','motor'],conveyor:['photo','motor'],thermal:['thermal']};
+function kindsOf(id){const c=COMPS[id];if(!c)return [];
+  if(c.type==='pb')return [c.kind==='b'?'pb_b':'pb_a'];
+  if(c.type==='lamp')return ['lamp'];if(c.type==='bz')return ['bz'];if(c.type==='sw')return ['sw'];if(c.type==='emg')return ['emg'];
+  return UNIT_KINDS[c.type]||[];}
+function stageKinds(){const k=['breaker','tb'];[...ST.units,...ST.ops.map(o=>o[0])].forEach(id=>kindsOf(id).forEach(x=>{if(!k.includes(x))k.push(x);}));return k;}
+
+/* ===================== 操作 ===================== */
+let selTerm=null,addSeq=0;
+function termClick(id){
+  if(selTerm===id){T[id].g.classList.remove('sel');selTerm=null;say('選択をやめました。');return;}
+  if(!selTerm){selTerm=id;T[id].g.classList.add('sel');say('つなぎたい<b>もう一方の端子</b>をクリック。やめるときは同じ端子か <kbd>Esc</kbd>。');return;}
+  const a=selTerm,b=id;T[a].g.classList.remove('sel');selTerm=null;
+  if(node(a)===node(b)){say('同じところ同士なので、つないでも変わりません。');return;}
+  if(wires.some(w=>!w.cut&&((w.a===a&&w.b===b)||(w.a===b&&w.b===a)))){say('その線はもうあります。');return;}
+  resetObservations();
+  const w={id:'x'+(++addSeq),a,b,orig:false,cut:false};wires.push(w);buildWires();click('tick');found('custom');
+}
+function wireClick(w){
+  resetObservations();
+  if(!w.orig){wires=wires.filter(x=>x!==w);buildWires();click('tick');say('足した線を外しました。');return;}
+  w.cut=!w.cut;click('tick');say(roleText(w));
+}
+function press(id,on){
+  if(!!S.press[id]===on||!P[id])return;
+  const stopping=on&&COMPS[id].kind==='b';
+  const releasing=!on&&COMPS[id].kind==='a';
+  const before=(stopping||releasing)&&solve().load;
+  S.press[id]=on;P[id].b.classList.toggle('down',on);
+  if(on)click('tick');
+  if(!before||(releasing&&pbList().some(pb=>COMPS[pb].kind==='a'&&S.press[pb])))return;
+  const {load}=solve();
+  if(!load)return;
+  for(const relay of Object.keys(S.rel)){
+    if(!S.rel[relay].on||!before[relay])continue;
+    if(stopping){found(load[relay]?'nostop':'stop');continue;}
+    if(load[relay]){
+      // 自分のa接点をすべて開いた場合と比べる。使った接点番号や線の経路は問わない。
+      const withoutSelf=solve(c=>!(c.comp===relay&&c.kind==='a')&&contactClosed(c));
+      if(!withoutSelf.load?.[relay])found('hold');
+    }else if(SELFHOLD.size&&!(ST.tab==='寸動'&&!S.press.SW1)){
+      found('nohold');
+    }
+  }
+}
+const pbList=()=>ST.ops.filter(o=>o[1]==='pb').map(o=>o[0]);
+const heldInputs=new Map();
+function holdInput(source,id){heldInputs.set(source,id);press(id,true);}
+function releaseInput(source){
+  const id=heldInputs.get(source);
+  if(!id)return;
+  heldInputs.delete(source);
+  if(![...heldInputs.values()].includes(id))press(id,false);
+}
+for(const event of ['pointerup','pointercancel','lostpointercapture']){
+  window.addEventListener(event,e=>releaseInput('p'+e.pointerId));
+}
+window.addEventListener('blur',()=>{heldInputs.clear();pbList().forEach(id=>press(id,false));});
+window.addEventListener('keydown',e=>{
+  if(e.repeat)return;const n=+e.key;const l=pbList();
+  if(n>=1&&n<=l.length){ac();holdInput('k'+n,l[n-1]);}
+  if(e.key==='Escape'&&selTerm){T[selTerm].g.classList.remove('sel');selTerm=null;}
+});
+window.addEventListener('keyup',e=>releaseInput('k'+e.key));
+$('slow').addEventListener('click',e=>{S.slow=!S.slow;e.currentTarget.setAttribute('aria-pressed',S.slow);document.documentElement.style.setProperty('--dur',S.slow?'420ms':'60ms');
+  say(S.slow?'ゆっくり動作:リレーが切り替わるまでを長くしました。電気の流れを追ってみよう。':'通常の速さに戻しました。');});
+$('snd').addEventListener('click',e=>{S.sound=!S.sound;e.currentTarget.setAttribute('aria-pressed',S.sound);e.currentTarget.textContent=S.sound?'音 ON':'音 OFF';});
+$('reset').addEventListener('click',()=>{
+  loadStage(stageIdx,true);click('off');
+  say(ST.blank?'すべての線を外し、ブレーカーをOFFにしました。':ST.faults?'配線が2本間違っている最初の状態に戻しました。':'お手本の配線に戻しました。');
+});
+
+/* ===================== 発見 ===================== */
+const FIND=[
+ ['start','カチッ! コイルに電気が入るとリレーの接点が一斉に切り替わる'],
+ ['and','AND回路:直列のボタンは、両方押したときだけ電気が通る'],
+ ['hold','自己保持:ボタンを離しても、リレーが自分の接点で電気をつなぎ続ける'],
+ ['or','OR回路:並列のボタンは、どちらを押しても電気が通る'],
+ ['stop','停止ボタン(b接点)を押すと回路が切れ、自己保持が外れる'],
+ ['timer','タイマーは設定時間を数え終わると接点を切り替える'],
+ ['offdelay','オフディレイ:電気を切っても、しばらく動き続ける'],
+ ['flicker','タイマー2個がお互いを切り替え合うと、点滅が続く'],
+ ['signal','タイマー3個のバトンリレーで、信号が一周した'],
+ ['ilock','インターロック:片方が動いている間、もう片方は入らない'],
+ ['quiz','先入力優先:先に押した人のリレーが、ほかの人の回路を切る'],
+ ['limit','リミットスイッチ:端まで行くと、機械が自分でスイッチを押して止まる'],
+ ['float','フロートスイッチ:水位で回路が入り、ボタンなしでポンプが動き出す'],
+ ['sensor','光電センサ:荷物を光で見つけて、さわらずに止める'],
+ ['inch','寸動:自己保持を切ると、押している間だけ少しずつ動かせる'],
+ ['thermal','サーマルリレー:モーターが熱くなりすぎる前に自動で止める'],
+ ['emg','非常停止ボタンを押すと接点が開き、ロック中は起動を押しても動かない'],
+ ['seq','時間差で、ランプ → ファン → ブザーと順番に動いた'],
+ ['gate','踏切完成! 警報が鳴って遮断機が下りた'],
+ ['fixed','配線間違いを直せた！ 起動を離しても運転が続き、設定時間後にファンが回り、停止ボタンで止まった'],
+ ['wired','空の盤から自己保持回路を完成させた。起動を離しても緑が点き、停止を押すと赤に戻った'],
+ ['nohold','自己保持の線が無いと、押している間しか動かない'],
+ ['nostop','停止を押しても止まらない回路ができた'],
+ ['both','インターロックが無いと、両方向に同時に入ってしまう'],
+ ['crash','リミットスイッチを迂回して給電すると、端まで動いても駆動が切れない'],
+ ['overflow','満水のスイッチが効かないと、タンクから水があふれる'],
+ ['short','短絡! +24Vと0Vが直接つながるとブレーカーが落ちる'],
+ ['buzz','ビビビ…自分のb接点で自分を切ると、リレーが振動し続ける'],
+ ['custom','自分で線を足してみた'],
+];
+// 単体で配布できるよう、両教材に同じ保存処理を持たせる。
+function setupNotebook(app,notes,got,refresh){
+  const prefix='seigyo-asobiba.note.v1.';
+  const groups=['relay','device'];
+  const records={relay:new Set(),device:new Set()};
+  const memoryOnly=new Set();
+  let waitForOperation=false;
+  const known=new Set(notes.map(([id])=>id));
+  const validId=id=>typeof id==='string'&&/^[a-z][a-z0-9_]{0,47}$/.test(id);
+  const status=$('noteStatus');
+  const unavailable=()=>{$('noteSaveInfo').textContent='自動保存できません。ページを閉じる前に記録を書き出してください。';};
+  function remember(group,id){
+    records[group].add(id);
+    if(group===app&&known.has(id))got.add(id);
+  }
+  function restoreKey(key){
+    if(!key||!key.startsWith(prefix))return;
+    const [group,id]=key.slice(prefix.length).split('.');
+    if(groups.includes(group)&&validId(id)&&key===prefix+group+'.'+id)remember(group,id);
+  }
+  function readSaved(){
+    try{
+      for(const group of groups)for(const id of records[group]){
+        const key=prefix+group+'.'+id;
+        if(!memoryOnly.has(key)&&localStorage.getItem(key)!=='1'){
+          records[group].delete(id);
+          if(group===app){got.delete(id);waitForOperation=true;}
+        }
+      }
+      for(const key of Object.keys(localStorage)){
+        if(key.startsWith(prefix)&&localStorage.getItem(key)==='1')restoreKey(key);
+      }
+    }catch{unavailable();}
+  }
+  function save(group,id){
+    remember(group,id);
+    // 発見ごとに別キーを使い、別タブの同時保存でも互いの記録を上書きしない。
+    const key=prefix+group+'.'+id;
+    try{localStorage.setItem(key,'1');memoryOnly.delete(key);}catch{memoryOnly.add(key);unavailable();}
+  }
+  readSaved();
+  window.addEventListener('storage',e=>{
+    if(e.key===null||e.key.startsWith(prefix)){readSaved();refresh();}
+  });
+  window.addEventListener('pageshow',e=>{if(e.persisted){readSaved();refresh();}});
+
+  $('noteClear').onclick=()=>{
+    const scope=app==='relay'?'カチッとリレー（全20面）':'機器あそび場（全9部屋）';
+    const question=scope+'の発見記録を、このブラウザーからすべて消去しますか？';
+    if(!window.confirm(window.lessonLanguage?.text(question)??question))return;
+    readSaved();
+    let cleared=true;
+    for(const id of records[app]){
+      const key=prefix+app+'.'+id;
+      try{localStorage.removeItem(key);}catch{cleared=false;unavailable();}
+      memoryOnly.delete(key);
+    }
+    records[app].clear();got.clear();waitForOperation=true;refresh();
+    status.textContent=cleared?scope+'の記録をクリアしました。':'この画面の記録をクリアしました。保存先の消去は確認できません。';
+  };
+  // 動作中の盤や別タブのシミュレーションが、消した直後に同じ発見を書き戻すのを防ぐ。
+  for(const type of ['pointerdown','keydown','click','input'])document.addEventListener(type,e=>{
+    if(e.target.closest?.('#tabs,#rooms,#panel,#diag,#timers,#reset,#ctl,#scene,#fix'))waitForOperation=false;
+    if(type==='keydown'&&app==='relay'&&/^[1-4]$/.test(e.key))waitForOperation=false;
+  },true);
+  $('noteExport').onclick=()=>{
+    readSaved();
+    const backup={format:'seigyo-asobiba.notes',version:1,relay:[...records.relay].sort(),device:[...records.device].sort()};
+    const url=URL.createObjectURL(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}));
+    const link=document.createElement('a');
+    link.href=url;link.download='seigyo-asobiba-notes.json';link.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    status.textContent='記録を書き出しました。';
+  };
+  const picker=$('noteFile');
+  $('noteImport').onclick=()=>picker.click();
+  picker.onchange=async()=>{
+    const file=picker.files[0];
+    if(!file)return;
+    try{
+      if(file.size>256*1024)throw new Error();
+      const backup=JSON.parse(await file.text());
+      if(backup?.format!=='seigyo-asobiba.notes'||backup.version!==1||
+        !groups.every(group=>Array.isArray(backup[group])&&backup[group].every(validId)))throw new Error();
+      for(const group of groups)for(const id of new Set(backup[group]))save(group,id);
+      refresh();
+      status.textContent='記録を読み込み、今までの発見とまとめました。';
+    }catch{
+      status.textContent='読み込めませんでした。この教材で書き出したJSONファイルを選んでください。';
+    }finally{picker.value='';}
+  };
+  return id=>{
+    if(waitForOperation)return false;
+    save(app,id);return true;
+  };
+}
+const got=new Set();
+const saveDiscovery=setupNotebook('relay',FIND,got,renderNotes);
+// 前半は各面の観察、最後の8件は配線を変える実験。
+const wiringHints={
+  or:'4面で現場の起動だけでファンを回し、停止する。事務所の起動だけでも回るか試そう。どちらから試してもよい。',
+  fixed:'19面で配線を直し、起動を押して離す。設定時間後にファンが回ったら、停止を押して離そう。',
+  wired:'20面の空の盤に自己保持回路と運転灯・停止灯を配線し、起動と停止を試そう。',
+  nohold:'3面で自己保持に使う R1 の14番からの線を外し、起動を押して離す。',
+  nostop:'3面で赤い停止ボタン（PB2）の上にある端子「1」「2」を順にクリックしてつなぐ。起動を押して離し、停止を1回押しても緑の運転ランプが点いたままか見てみよう。',
+  both:'9面で両方のモーター入力へ同時に給電したらどうなる？',
+  crash:'11面で上限スイッチを迂回する線を足し、シャッターを上げる。',
+  overflow:'12面で満水になってもポンプへの給電が続く配線を試す。',
+  short:'電源の +24V と 0V の間に部品がひとつもなかったら？',
+  buzz:'1面で R1 のコイルを、起動ボタンの代わりに R1 自身の b 接点から給電する。',
+  custom:'盤の端子を2つ、順にクリックする。',
+};
+const observationStages={start:1,and:2,hold:3,or:4,stop:3,timer:5,offdelay:6,flicker:7,signal:8,ilock:9,quiz:10,limit:11,float:12,sensor:13,inch:14,thermal:15,emg:16,seq:17,gate:18,fixed:19};
+function renderNotes(nk){
+  const ul=$('notes');ul.innerHTML='';
+  FIND.forEach(([k,t])=>{const li=document.createElement('li');const g=got.has(k);
+    li.className=(g?'got':'')+(k===nk?' new':'');
+    const stage=observationStages[k];
+    const hint=wiringHints[k]||`${stage}面「${STAGES[stage-1].tab}」で観察：${t}`;
+    li.innerHTML=`<span class="st">${g?'✓':''}</span><span>${g?t:hint}</span>`;ul.appendChild(li);});
+  $('cnt').textContent=got.size+' / '+FIND.length;
+}
+function found(k){if(got.has(k)||!saveDiscovery(k))return;renderNotes(k);const f=FIND.find(x=>x[0]===k);say('<b>発見!</b> '+f[1],k==='short'||k==='buzz'||k==='both');}
+function say(h,warn){$('say').innerHTML=h;$('say').classList.toggle('warn',!!warn);}
+
+/* ===================== 面の読み込み ===================== */
+function renderTabs(){
+  const nav=$('tabs');nav.innerHTML='';
+  STAGES.forEach((s,i)=>{const b=document.createElement('button');b.innerHTML=`<span class="n">${i+1}</span>${s.tab}`;
+    b.setAttribute('aria-current',i===stageIdx);b.addEventListener('click',()=>{ac();loadStage(i);});nav.appendChild(b);});
+}
+function loadStage(i,isReset){
+  heldInputs.clear();
+  stageIdx=i;ST=STAGES[i];
+  repairPhase=null;
+  resetObservations();
+  S.press={};S.rel={};S.tim={};S.breaker=true;S.tripped=false;S.fan={spd:0,ang:0};S.mot={spd:0,ang:0};S.gate={ang:-80};S.stageT=0;S.sh={pos:1,jamT:0,jam:false};S.tk={level:.6,over:false,pang:0};S.prs={pos:0};S.cv={boxes:[],spawnT:0,detect:false,off:0,spd:0};S.thr={heat:0,trip:false};S.heavy=false;S.emg=false;
+  selTerm=null;
+  setupComps(ST);
+  ST.units.filter(u=>/^R\d$/.test(u)).forEach(u=>S.rel[u]={on:false,p:0,flips:0});
+  ST.units.filter(u=>/^T\d$/.test(u)).forEach(u=>{S.tim[u]={t:0,up:false};if(S.preset[i+':'+u]==null)S.preset[i+':'+u]=ST.timers[u];});
+  buildCircuit(ST);
+  const referenceWires=wires;
+  if(ST.blank){wires=[];S.breaker=false;}
+  (ST.faults||[]).forEach(f=>{const w=wires.find(w=>(w.a===f.w[0]&&w.b===f.w[1])||(w.a===f.w[1]&&w.b===f.w[0]));if(w){w.a=f.to[0];w.b=f.to[1];}});
+  buildPanel();buildWires();buildDiagram(referenceWires);
+  if(ST.units.includes('CONV'))S.cv.boxes=[{id:++boxSeq,x:P.CONV.xs+70,fall:0}];
+  if(isReset)P.newtags.forEach(t=>t.remove()),panel.querySelectorAll('.enter').forEach(e=>e.classList.remove('enter'));
+  renderTabs();
+  $('stName').textContent=`${i+1}. ${ST.name}`;$('stSub').textContent=ST.sub;
+  $('twoHandHelp').hidden=ST.tab!=='両手';
+  $('wiringCheck').hidden=!ST.faults&&!ST.blank;
+  $('wiringCheckTitle').textContent=ST.blank?'配線できたら試そう':'直したあとの正しい動作';
+  $('wiringTimerStep').hidden=!!ST.blank;
+  $('wiringIdleText').textContent=ST.blank?'赤の停止灯（RL）だけが点きます。':'赤の停止灯（RL）だけが点き、ファンは止まっています。';
+  $('wiringStopText').textContent=ST.blank?'緑が消え、手を離しても赤だけが点いたままです。':'緑が消えて赤が点き、ファンは減速して止まります。手を離しても停止したままです。';
+  $('diagramHint').textContent=ST.blank?'配線例（電源OFF）':'盤の線と同じ番号の線が光ります';
+  $('referenceEnds').hidden=!ST.blank;
+  $('referenceEnds').textContent=ST.blank?'図の線を選ぶと、つなぐ端子を確認できます。':'';
+  $('reset').textContent=ST.blank?'盤の配線をすべて外す':ST.faults?'配線直しをやり直す':'お手本に戻す';
+  // タイマー設定
+  const tl=Object.keys(ST.timers);$('timerCard').hidden=!tl.length;
+  const box=$('timers');box.innerHTML='';
+  tl.forEach(u=>{const key=i+':'+u;const lab=document.createElement('label');lab.setAttribute('for','tm'+u);
+    lab.innerHTML=`${u}<input id="tm${u}" type="range" min="0.3" max="10" step="0.1" value="${S.preset[key]}"><b>${S.preset[key].toFixed(1)}秒</b>`;
+    if(ST.faults&&u==='T1')$('wiringDelay').textContent=String(S.preset[key]);
+    lab.querySelector('input').addEventListener('input',e=>{
+      S.preset[key]=+e.target.value;
+      lab.querySelector('b').textContent=S.preset[key].toFixed(1)+'秒';
+      if(ST.faults&&u==='T1')$('wiringDelay').textContent=String(S.preset[key]);
+    });
+    box.appendChild(lab);});
+  $('partDelay').value=ST.offDelay?.length?'off':'on';
+  setPartChoices(stageKinds());
+  {const nk=ST.newParts.flatMap(kindsOf);showPart(nk.length?nk[0]:'relay');}
+  const np=ST.newParts.map(id=>COMPS[id]?.label||id).join('、');
+  if(!isReset)say(ST.intro+(np?`<br><span style="color:var(--muted)">新しい部品：${np}</span>`:''));
+}
+const preset=u=>S.preset[stageIdx+':'+u];
+
+const repairPrompts={
+  idle:'電源ONで、起動前に赤の停止灯だけが点き、ファンが止まるか確認しよう。',
+  ready:'起動（PB1）を押し、緑の運転灯が点いたら離してください。',
+  starting:'起動（PB1）から手を離して、運転が続くか確認してください。',
+  holding:'自己保持できました。タイマーの設定時間まで待ってください。',
+  fan:'ファンが回りました。停止（PB2）を押して離してください。',
+  stopping:'停止（PB2）を離してください。赤の停止灯だけが点き、ファンが止まるとクリアです。',
+  done:'✓ 19面クリア。発見ノートに記録しました。'
+};
+let repairPhase;
+const blankPrompts={
+  idle:'盤の左上のブレーカーをONにして、赤の停止灯だけが点くか確認しよう。',
+  holding:'自己保持できました。停止（PB2）を押して離してください。',
+  stopping:'停止（PB2）を離し、赤だけが点いたままか確認してください。',
+  done:'✓ 20面クリア。発見ノートに記録しました。'
+};
+let observation;
+function resetObservations(){
+  observation={load:null,next:0,last:null,flashes:0};
+  if(ST.faults||ST.blank)setRepairPhase('idle');
+}
+function observeOrder(value,order,note){
+  if(value===observation.last)return;
+  observation.last=value;
+  if(value===order[observation.next])observation.next++;
+  else observation.next=value===order[0]?1:0;
+  if(observation.next===order.length)found(note);
+}
+function observeLoads(load){
+  const prev=observation.load;
+  observation.load=load;
+  if(!prev||!S.breaker)return;
+  switch(ST.tab){
+    case '2か所':
+      if(!prev.FAN&&load.FAN&&(!!S.press.PB1!==!!S.press.PB2)){
+        const station=S.press.PB1?'現場':'事務所';
+        if(observation.firstStation&&observation.firstStation!==station)found('or');
+        observation.firstStation=station;
+      }
+      break;
+    case 'シャッター':
+      if((prev['SH:U']&&!load['SH:U']&&S.sh.pos<=.0005)||(prev['SH:D']&&!load['SH:D']&&S.sh.pos>=.9995))found('limit');
+      break;
+    case '給水':
+      if(!prev.PUMP&&load.PUMP&&S.tk.level<=.2)found('float');
+      break;
+    case 'コンベア':
+      if(prev.CONV&&!load.CONV&&S.cv.detect&&S.press.SW1)found('sensor');
+      break;
+    case '寸動':
+      if(prev.CONV&&!load.CONV&&!S.press.SW1&&!S.press.PB1&&!S.press.PB2)found('inch');
+      break;
+    case '過負荷':
+      if((prev['M:F']||prev['M:R'])&&!load['M:F']&&!load['M:R']&&S.thr.trip)found('thermal');
+      break;
+    case '非常停止':
+      if(prev.CONV&&!load.CONV&&S.emg)found('emg');
+      break;
+    case 'インターロック':
+      if(Object.keys(S.rel).every(id=>S.rel[id].on===load[id])&&
+        ((S.press.PB2&&prev['M:F']&&load['M:F']&&!load['M:R'])||(S.press.PB1&&prev['M:R']&&load['M:R']&&!load['M:F'])))found('ilock');
+      break;
+    case 'クイズ':{
+      const lamps=['GL','YL','RL'];
+      const winner=lamps.find(k=>load[k]);
+      if(winner&&prev[winner]&&lamps.every(k=>k===winner||!load[k])&&
+        Object.keys(S.rel).every(id=>S.rel[id].on===load[id])&&lamps.some((k,i)=>k!==winner&&S.press['PB'+(i+1)]))found('quiz');
+      break;
+    }
+    case 'オフディレイ':
+      if(!S.press.SW1&&!load.T1&&S.tim.T1.up&&load.FAN)found('offdelay');
+      break;
+    case '点滅':
+    case '踏切':{
+      const lamp=ST.tab==='点滅'?'YL':'LL';
+      if(!prev[lamp]&&load[lamp])observation.flashes++;
+      if(S.press.PB2)observation.flashes=0;
+      if(observation.flashes>=3)found('flicker');
+      break;
+    }
+    case '信号機':
+      observeOrder(['GL','YL','RL'].filter(lamp=>load[lamp]).join('+'),['GL','YL','RL','GL'],'signal');break;
+    case '順番':
+      observeOrder(['GL','FAN','BZ'].filter(unit=>load[unit]).join('+'),['GL','GL+FAN','GL+FAN+BZ'],'seq');break;
+  }
+}
+function setRepairPhase(phase){
+  const prompt=(ST.blank&&blankPrompts[phase])||repairPrompts[phase];
+  if(repairPhase===phase)return;
+  repairPhase=phase;
+  $('repairStatus').textContent=prompt;
+}
+function checkRepair(load){
+  const note=ST.blank?'wired':'fixed';
+  if(repairPhase==='done'){
+    if(got.has(note))return;
+    setRepairPhase('idle');
+  }
+  const start=S.press.PB1,stop=S.press.PB2,timed=S.tim.T1?.up;
+  if(!S.breaker||(load.FAN&&!timed)){setRepairPhase('idle');return;}
+  if(repairPhase===(ST.blank?'holding':'fan')&&stop)setRepairPhase('stopping');
+  // 接点が切り替わる途中の一瞬を、自己保持や停止の成立と数えない。
+  if(S.rel.R1.on!==load.R1)return;
+  if(!start&&!stop&&!load.GL&&load.RL&&!load.T1&&!load.FAN&&!timed){
+    if(repairPhase==='stopping'){
+      if(S.fan.spd>0)return;
+      found(note);setRepairPhase(got.has(note)?'done':'idle');
+    }else setRepairPhase('ready');
+    return;
+  }
+  if(stop||!load.GL||load.RL||(!ST.blank&&!load.T1))return;
+  if(repairPhase==='ready'&&start&&!timed)setRepairPhase('starting');
+  if(repairPhase==='starting'&&!start)setRepairPhase('holding');
+  if(ST.blank&&repairPhase==='stopping'&&!start)setRepairPhase('holding');
+  if((repairPhase==='holding'||repairPhase==='stopping')&&!start&&timed&&load.FAN)setRepairPhase('fan');
+}
+
+/* ===================== ループ ===================== */
+function solveWithBreaker(){
+  let R=solve();
+  if(R.short){S.breaker=false;S.tripped=true;found('short');
+    say('<b>短絡!</b> +24Vと0Vが直接つながったのでブレーカーが落ちました。原因の線を外してからブレーカーを入れ直してね。',true);R=solve();}
+  return R;
+}
+let last=performance.now();
+function step(now){
+  const dt=Math.min(50,now-last);last=now;S.stageT+=dt;
+  let R=solveWithBreaker();
+  // リレー
+  for(const id in S.rel){const r=S.rel[id];const want=!!R.load[id];
+    if(want!==r.on){r.p+=dt;if(r.p>=DELAY()){r.on=want;r.p=0;click(want?'on':'off');
+        if(want)found('start');
+        // 次のコイルは、直前に切り替わった接点を通る電流で判定する。
+        R=solveWithBreaker();
+        r.flips=R.load[id]!==r.on?r.flips+1:0;
+        if(r.flips>=8)found('buzz');}}
+    else{r.p=0;r.flips=0;}}
+  // タイマー
+  for(const id in S.tim){const t=S.tim[id];
+    if(ST.offDelay&&ST.offDelay.includes(id)){
+      if(R.load[id]){if(!t.up){t.up=true;click('on');}t.t=0;}
+      else if(t.up){t.t+=dt/1000;if(t.t>=preset(id)){t.up=false;t.t=0;click('off');found('timer');}}
+    }else{
+    if(R.load[id]){t.t+=dt/1000;if(!t.up&&t.t>=preset(id)){t.up=true;click('on');found('timer');}}
+    else{if(t.up)click('off');t.t=0;t.up=false;}}
+  }
+  R=solveWithBreaker();
+  observeLoads(R.load);
+  // 機械
+  const ease=(o,tgt,up,down)=>{o.spd+=(tgt-o.spd)*Math.min(1,dt/(tgt>o.spd?up:down))*3;if(o.spd<.002)o.spd=0;};
+  ease(S.fan,R.load.FAN?1:0,700,1400);S.fan.ang=(S.fan.ang+S.fan.spd*dt*1.1)%360;
+  const mf=R.load['M:F'],mr=R.load['M:R'];
+  if(mf&&mr)found('both');
+  S.mot.dir=mf&&!mr?1:mr&&!mf?-1:(S.mot.dir||0);
+  ease(S.mot,(mf^mr)?1:0,600,1200);S.mot.ang=(S.mot.ang+S.mot.dir*S.mot.spd*dt*.6)%360;
+  if(ST.units.includes('GATE')){const tg=R.load.GATE?0:-80;const d=tg-S.gate.ang;S.gate.ang+=Math.sign(d)*Math.min(Math.abs(d),dt*.06);
+    if(R.load.GATE&&R.load.BZ&&S.gate.ang>-1)found('gate');}
+  if(ST.units.includes('SH')){const u=R.load['SH:U'],d=R.load['SH:D'];
+    S.sh.pos=Math.max(0,Math.min(1,S.sh.pos+((d?1:0)-(u?1:0))*dt/4500));
+    const jam=(u&&d)||(u&&S.sh.pos<=0)||(d&&S.sh.pos>=1);S.sh.jam=jam;
+    if(jam){S.sh.jamT+=dt;if(S.sh.jamT>Math.max(400,DELAY()+50))found(u&&d?'both':'crash');}else S.sh.jamT=0;}
+  if(ST.units.includes('TK')){const pm=R.load.PUMP,sv=R.load.SV;
+    S.tk.level=Math.max(0,S.tk.level+((pm?.12:0)-(sv?.06:0))*dt/1000);
+    S.tk.over=false;if(S.tk.level>=1){S.tk.level=1;if(pm){S.tk.over=true;found('overflow');}}
+    S.tk.pang+=pm?dt*.7:0;}
+  if(ST.units.includes('PRESS')){const tg=R.load.PRESS?1:0,d=tg-S.prs.pos;S.prs.pos+=Math.sign(d)*Math.min(Math.abs(d),dt*(tg?.0011:.002));if(S.prs.pos>.97&&tg&&S.press.PB1&&S.press.PB2)found('and');}
+  if(ST.units.includes('CONV')&&P.CONV){const cv=S.cv,pc=P.CONV;
+    ease(cv,R.load.CONV?1:0,350,450);const v=cv.spd*dt*.05;cv.off-=v;
+    cv.boxes.forEach(b=>{if(b.fall){b.fall+=dt;b.x+=v*.4+dt*.02;return;}b.x+=v;if(b.x+18>pc.xe)b.fall=1;});
+    cv.boxes=cv.boxes.filter(b=>!b.fall||b.fall<700);
+    if(R.load.CONV){cv.spawnT+=dt;if(cv.spawnT>3200&&!cv.boxes.some(b=>b.x<pc.xs+60)){cv.boxes.push({id:++boxSeq,x:pc.xs+6,fall:0});cv.spawnT=0;}}
+    cv.detect=cv.boxes.some(b=>!b.fall&&b.x<=pc.sx&&b.x+36>=pc.sx);}
+  if(ST.units.includes('THR')){const run=mf||mr;
+    S.thr.heat=Math.max(0,Math.min(1.1,S.thr.heat+(run?(S.heavy?.2:-.03):-.1)*dt/1000));
+    if(!S.thr.trip&&S.thr.heat>=1){S.thr.trip=true;click('trip');}}
+  if(ST.faults||ST.blank)checkRepair(R.load);
+  audioUpdate(now,!!R.load.BZ);
+  render(R,dt,now);
+  requestAnimationFrame(step);
+}
+
+function render(R,dt,now){
+  P.lever.style.transform=S.breaker?'rotate(0deg)':(S.tripped?'rotate(90deg)':'rotate(180deg)');
+  P.brkTxt.textContent=S.breaker?'ON':(S.tripped?'TRIP':'OFF');
+  const anyOn=Object.values(S.rel).some(r=>r.on);
+  $('logoBlade').setAttribute('x2',anyOn?310:306);$('logoBlade').setAttribute('y2',anyOn?32:18);
+  $('logoSpark').style.opacity=anyOn?1:.25;
+  P.brkTxt.style.fill=S.breaker?'#9be59f':(S.tripped?'#ff7b6b':'#bbb');
+  for(const id in S.rel){const r=S.rel[id],p=P[id];
+    p.arm.style.transform=r.on?'rotate(7deg)':'rotate(0deg)';p.bl.style.transform=r.on?'translateX(4px)':'translateX(0)';
+    p.led.setAttribute('fill',r.on?'#ff3b2b':'#5a2020');p.glow.setAttribute('opacity',R.load[id]?.9:0);}
+  for(const id in S.tim){const t=S.tim[id],p=P[id],pr=preset(id);const pf=Math.min(1,pr/10),f=Math.min(t.t,pr)/10;
+    const arc=fr=>{if(fr<=.001)return '';const a0=-225*Math.PI/180,a1=(-225+270*fr)*Math.PI/180,r=40;
+      return `M${p.cx+Math.cos(a0)*r} ${p.cy+Math.sin(a0)*r} A${r} ${r} 0 ${270*fr>180?1:0} 1 ${p.cx+Math.cos(a1)*r} ${p.cy+Math.sin(a1)*r}`;};
+    p.arc.setAttribute('d',arc(f));const pa=(-225+270*pf)*Math.PI/180;
+    p.ptr.setAttribute('x2',p.cx+Math.cos(pa)*30);p.ptr.setAttribute('y2',p.cy+Math.sin(pa)*30);
+    p.txt.textContent=Math.min(t.t,pr).toFixed(1)+'s';
+    p.on.setAttribute('fill',R.load[id]?'#39e05a':'#1d3a22');p.up.setAttribute('fill',t.up?'#ffa21f':'#3d2a14');
+    const dl=DG.loads[id];if(dl&&dl.txt)dl.txt.textContent=R.load[id]?(t.up?'UP':Math.min(t.t,pr).toFixed(1)+'s'):pr.toFixed(1)+'s';}
+  if(P.FAN)P.FAN.bl.setAttribute('transform',`translate(${P.FAN.cx} ${P.FAN.cy}) rotate(${S.fan.ang})`);
+  if(P.M){const mf=R.load['M:F'],mr=R.load['M:R'];
+    const sh=mf&&mr?`translate(${(Math.random()-.5)*5} ${(Math.random()-.5)*5})`:'';
+    P.M.g.setAttribute('transform',sh);
+    P.M.disc.setAttribute('transform',`translate(${P.M.cx} ${P.M.cy}) rotate(${S.mot.ang})`);
+    P.M.txt.textContent=mf&&mr?'ガガガ!':mf?'正転 →':mr?'← 逆転':'停止';
+    P.M.txt.style.fill=mf&&mr?'#ff6a5a':'#9fd0ff';}
+  if(P.GATE){P.GATE.bar.style.transform=`rotate(${S.gate.ang}deg)`;
+    P.GATE.l1.setAttribute('fill',R.load.LL?'#ff3b22':'#4a1c18');P.GATE.l2.setAttribute('fill',R.load.LR?'#ff3b22':'#4a1c18');
+    P.GATE.ttl.textContent=R.load.GATE?'カンカン':'';}
+  if(P.PRESS&&ST.units.includes('PRESS')){const pos=S.prs.pos;P.PRESS.ram.setAttribute('transform',`translate(0 ${pos*60})`);
+    const sq=Math.max(0,164+60*pos-218);P.PRESS.work.setAttribute('height',18-sq);P.PRESS.work.setAttribute('y',218+sq);}
+  if(P.CONV&&ST.units.includes('CONV')){const p=P.CONV,cv=S.cv;
+    p.belt.setAttribute('stroke-dashoffset',cv.off.toFixed(1));
+    p.rollers.forEach((r,i)=>r.setAttribute('transform',`rotate(${(-cv.off*6)%360} ${[p.xs+11,p.xe-11][i]} ${p.by+11})`));
+    p.led.setAttribute('fill',cv.detect?'#ff3b2b':'#552');p.beam.setAttribute('opacity',cv.detect?.95:.45);
+    const seen=new Set();
+    cv.boxes.forEach(b=>{seen.add(b.id);let e=p.boxEls.get(b.id);
+      if(!e){e=el('g',{style:'cursor:pointer'},p.layer);
+        el('rect',{x:0,y:-30,width:36,height:30,rx:2,fill:'#c89b62',stroke:'#7a5a30'},e);el('rect',{x:15,y:-30,width:6,height:30,fill:'#e8d2a8'},e);
+        e.addEventListener('pointerdown',ev=>{ev.stopPropagation();ac();S.cv.boxes=S.cv.boxes.filter(x=>x.id!==b.id);click('tick');say('荷物を取りました。');});
+        p.boxEls.set(b.id,e);}
+      const fy=b.fall?Math.pow(b.fall/1000,2)*500:0,rot=b.fall?b.fall*.15:0;
+      e.setAttribute('transform',`translate(${b.x.toFixed(1)} ${(p.by+fy).toFixed(1)}) rotate(${rot.toFixed(1)} 18 -15)`);
+      e.setAttribute('opacity',b.fall?Math.max(0,1-b.fall/700):1);});
+    for(const [id,e] of p.boxEls)if(!seen.has(id)){e.remove();p.boxEls.delete(id);}}
+  if(P.THR&&ST.units.includes('THR')){const p=P.THR,h=Math.min(1,S.thr.heat);
+    p.bar.setAttribute('width',92*h);p.bar.setAttribute('fill',h>.8?'#e0301e':h>.5?'#ff8a1f':'#f4c542');
+    p.flag.setAttribute('fill',S.thr.trip?'#c8281c':'#2c3135');p.flagT.textContent=S.thr.trip?'TRIP':'正常';p.flagT.style.fill=S.thr.trip?'#fff':'#9be59f';}
+  if(P.M&&P.M.ht&&ST.heavy)P.M.ht.textContent='負荷:'+(S.heavy?'重い':'軽い');
+  if(P.SH&&ST.units.includes('SH')){const p=P.SH,pos=S.sh.pos;
+    p.slat.setAttribute('height',Math.max(.5,pos*140));p.edge.setAttribute('y',106+pos*140);
+    const a1=pos<=0.001,a2=pos>=0.999;
+    [[p.ls1,a1],[p.ls2,a2]].forEach(([l,a])=>{l.lev.setAttribute('x2',a?p.x0+130:p.x0+129);l.lev.setAttribute('y2',a?l.y:l.y-9);l.led.setAttribute('fill',a?'#ff3b2b':'#552');});
+    p.body.setAttribute('transform',S.sh.jam?`translate(${(Math.random()-.5)*4} ${(Math.random()-.5)*3})`:'');}
+  if(P.TK&&ST.units.includes('TK')){const p=P.TK,lv=S.tk.level;const sy=p.ty+p.th*(1-lv);
+    p.water.setAttribute('y',sy);p.water.setAttribute('height',p.th*lv);p.wave.setAttribute('y',sy);
+    [p.f1,p.f2].forEach(f=>f.ball.setAttribute('cy',Math.min(Math.max(sy-3,f.L-10),f.L+10)));
+    p.imp.setAttribute('transform',`translate(${p.px} 236) rotate(${S.tk.pang})`);
+    if(R.load.PUMP){p.off-=dt*.05;p.flow.setAttribute('stroke-dashoffset',p.off.toFixed(1));}
+    p.flow.setAttribute('opacity',R.load.PUMP?1:0);
+    p.svLed.setAttribute('fill',R.load.SV?'#39e05a':'#1d3a22');
+    p.drops.forEach((d,i)=>{const t=((now/500)+i/3)%1;d.setAttribute('cy',260+t*34);d.setAttribute('opacity',R.load.SV&&lv>0?1-t*.6:0);});
+    p.wave.setAttribute('fill',S.tk.over?'#ffffff':'#9fd4ff');}
+  ST.ops.forEach(([id,type])=>{const p=P[id];
+    if(type==='lamp'){p.lens.setAttribute('fill',R.load[id]?`url(#gOn_${p.col})`:`url(#gOff_${p.col})`);p.glow.setAttribute('opacity',R.load[id]?1:0);}
+    if(type==='emg'){p.b.classList.toggle('down',S.emg);}
+    if(type==='sw'){p.knob.setAttribute('transform',`rotate(${S.press[id]?45:-45} ${p.cx} ${p.cy})`);}
+    if(type==='bz'){p.rings.setAttribute('opacity',R.load[id]?(Math.floor(now/90)%2?.9:.3):0);}});
+  // 線
+  const spd=(S.slow?.12:.45)*dt;
+  wires.forEach(w=>{const o=WG[w.id];if(!o)return;
+    const hot=!w.cut&&R.hot.has(node(w.a))&&R.hot.has(node(w.b));const fd=R.flow.get(w.id);
+    o.g.classList.toggle('cut',w.cut);o.g.classList.toggle('hot',hot&&!fd);o.g.classList.toggle('flowing',!!fd);
+    if(fd){o.off-=fd*spd;o.flow.setAttribute('stroke-dashoffset',o.off.toFixed(1));}
+    (DG[w.id]||[]).forEach(p=>{p.classList.toggle('cut',w.cut);p.classList.toggle('hot',hot&&!fd);p.classList.toggle('flowing',!!fd);});});
+  if(ST.blank)return; // 20面の図は電源OFFの配線例。盤の動作は右の実配線で表示する。
+  DG.fixed.forEach(f=>f.p.classList.toggle('hot',R.hot.has(node(f.node))));
+  DG.busP.setAttribute('class','seg'+(S.breaker?' hot':''));
+  DG.contacts.forEach(d=>{const cl=contactClosed(d.c);let x2=d.x+31,y2=d.y;
+    if(!cl){if(d.c.kind==='a'){x2=d.x+28;y2=d.y-12;}else{x2=d.x+27;y2=d.y+13;}}
+    d.bl.setAttribute('x2',x2);d.bl.setAttribute('y2',y2);d.grp.classList.toggle('on',cl&&R.hot.has(node(d.c.a)));});
+  for(const k in DG.loads){const l=DG.loads[k];l.circ.setAttribute('fill',R.load[k]?l.col:'#fff');}
+  const added=wires.filter(w=>!w.orig).length;DG.note.textContent=added?`足した線 ${added}本は盤の上だけに描かれています`:'';
+}
+
+loadStage(stageIdx);renderNotes();
+requestAnimationFrame(t=>{last=t;requestAnimationFrame(step);});
+})();
+</script>
+</body>
+</html>

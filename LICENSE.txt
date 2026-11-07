@@ -1,0 +1,85 @@
+遊んで学ぶ 制御と電気 — 教材とプログラムの利用条件
+Explore Controls and Electricity — License terms (English below)
+
+© 2026 FA Labo
+公式教材 / Original work: https://learn.fa-labo.com/
+
+【教材の文章と図】
+FA Labo が制作した解説文、展開接続図、部品の構造図とその英訳に
+「クリエイティブ・コモンズ 表示–非営利–継承 4.0 国際」
+（CC BY-NC-SA 4.0）を適用します。
+https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+これらの教材は、HTML や JavaScript に含まれるものも、同ライセンスの条件で
+非営利目的のコピー・転載・改変ができます。共有する際は、出典とライセンスを
+示してください。改変版を共有する際は変更した旨を明記し、継承条件に従ってください。
+
+図を改変した場合の出典表示例（変更内容は実際の内容に合わせてください）
+  FA Labo「遊んで学ぶ 制御と電気」© 2026 FA Labo の回路図に、運転灯を追加しました。
+  元の教材　https://learn.fa-labo.com/
+  この図のライセンス　CC BY-NC-SA 4.0　https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+【プログラム】
+シミュレーション、描画、操作、言語切り替えなどを実装する FA Labo のコードには、
+次の利用条件を適用します。同じファイルに含まれる教材の文章と図には上記の
+CC ライセンスが適用されます。
+
+・非営利目的で、自分の端末にコピーして実行・改変できます。
+・非営利目的であれば、改変したプログラムを配布・公開できます。利用者が
+  確認できる画面または同梱文書に、FA Labo、元の教材名、公式教材の URL、
+  改変した旨を記載し、この利用条件を添えてください。
+・未改変のプログラムをそのまま再配布・再公開する場合や、プログラムまたは
+  改変版を商用利用する場合は、事前に FA Labo の許諾を得てください。
+  商用利用には、販売、有料研修での使用、有料サービスへの組み込みなどが該当します。
+
+教材・プログラムの商用利用や企業向け研修のご相談先　https://fa-labo.com/
+第三者のフォント等には各権利者の条件が適用されます。法令で認められる利用や、
+GitHub の利用規約で認められる公開リポジトリの閲覧・フォークも可能です。
+
+X のロゴ（assets/x-logo-white.png）は X Corp. のブランド素材です。
+FA Labo の CC ライセンスの対象外で、X の商標・ブランドガイドラインに従います。
+公式配布元：https://about.x.com/en/who-we-are/brand-toolkit
+共有ボタン：https://help.x.com/en/using-x/x-buttons
+確認日：2026-11-07。公式配布の logo-white.png を改変せず使用しています。
+
+English
+
+The X logo (assets/x-logo-white.png) is a brand asset of X Corp., excluded
+from FA Labo's CC license and subject to X's trademark and brand guidelines.
+Source: https://about.x.com/en/who-we-are/brand-toolkit
+Button guidance: https://help.x.com/en/using-x/x-buttons
+Checked 2026-11-07. The official logo-white.png is used without modification.
+
+Lesson text and diagrams
+FA Labo licenses its lesson text, circuit diagrams, component diagrams and
+their English translations under Creative Commons Attribution-NonCommercial-
+ShareAlike 4.0 International (CC BY-NC-SA 4.0), including when embedded in
+HTML or JavaScript. You may copy, republish and adapt these materials for
+noncommercial purposes under the terms of the license. When sharing them,
+credit the source and identify the license. When sharing an adaptation,
+indicate that you made changes and follow the ShareAlike terms.
+https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+Example credit for an adapted diagram (describe your actual change)
+  Adapted from Explore Controls and Electricity, © 2026 FA Labo.
+  A run indicator was added to the circuit. Original: https://learn.fa-labo.com/
+  This diagram: CC BY-NC-SA 4.0, https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+Software
+The following terms apply to FA Labo's code implementing the simulations,
+rendering, controls and language switching. Lesson text and diagrams in the
+same files are covered by the CC license above.
+
+• You may copy, run and modify the software on your device for noncommercial use.
+• You may distribute or publish modified versions for noncommercial purposes.
+  Credit FA Labo, name the original work, link to the original lesson site and
+  state that you modified the software. Put this credit in the interface or
+  accompanying documentation and include these terms.
+• Obtain prior permission from FA Labo to redistribute or republish an
+  unmodified copy, or to use the original or modified software commercially,
+  including selling it, using it in paid training or bundling it with a paid service.
+
+For commercial licensing or training inquiries, contact https://fa-labo.com/
+Third-party material, including fonts, is subject to its own terms. Uses
+permitted by law and viewing or forking a public repository as permitted by
+GitHub's Terms of Service are also allowed.

@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>遊んで学ぶ制御と電気</title>
+<meta name="description" content="触って、動かして学ぶ制御と電気。カチッとリレー20面と機器あそび場9部屋をブラウザーで体験。制作：FA Labo。">
+<link rel="canonical" href="https://learn.fa-labo.com/">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:site_name" content="FA Labo">
+<meta property="og:title" content="遊んで学ぶ 制御と電気">
+<meta property="og:description" content="触って、動かして学ぶ。リレー・モーター・温度・測定などをブラウザーで体験できる教材です。">
+<meta property="og:url" content="https://learn.fa-labo.com/">
+<meta property="og:image" content="https://learn.fa-labo.com/assets/share-card.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="遊んで学ぶ 制御と電気。カチッとリレーと機器あそび場。制作 FA Labo。">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="遊んで学ぶ 制御と電気">
+<meta name="twitter:description" content="リレー20面と機器あそび場9部屋。触って、動かして学べるFA Laboの教材です。">
+<meta name="twitter:image" content="https://learn.fa-labo.com/assets/share-card.png">
+<meta name="twitter:image:alt" content="遊んで学ぶ 制御と電気。カチッとリレーと機器あそび場。制作 FA Labo。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: 作業台の上に2枚の大きなカード。下に資料。単一のダーク作業場テーマ(2つのソフトと同じ) */
+:root{
+  color-scheme:dark;
+  --bg:#191d20;--bench:#22282c;--ink:#ebe7de;--muted:#98a2a6;--line:#343c41;--accent:#ff8a1f;--live:#ffc061;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic","Meiryo",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;background-image:radial-gradient(1200px 700px at 30% 10%,#262d31 0%,var(--bg) 70%)}
+.wrap{max-width:1180px;margin:0 auto;padding:40px max(20px,env(safe-area-inset-left,0px)) 48px;display:flex;flex-direction:column;gap:28px}
+header h1{font-weight:400;font-size:clamp(28px,4vw,42px);margin:0;letter-spacing:.02em;line-height:1.35;text-wrap:balance}
+header h1 em{font-style:normal;color:var(--accent)}
+header p{margin:10px 0 0;color:var(--muted);line-height:1.7;max-width:62ch}
+.header-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px 24px;margin-top:20px}
+.parts-link{display:flex;align-items:center;gap:20px;width:100%;padding:18px 22px;border:1px solid #587477;border-radius:12px;background:linear-gradient(110deg,#243b3d,#22282c);color:var(--ink);text-decoration:none;transition:border-color .15s,background .15s}
+.parts-link:hover{border-color:var(--live);background:#2b4142}
+.parts-link:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.parts-link svg{width:80px;height:80px;flex-shrink:0}
+.parts-copy{display:flex;flex-direction:column;gap:5px;min-width:0}
+.parts-copy strong{font-size:clamp(18px,2.5vw,23px);font-weight:500;color:#ffe0b8;line-height:1.5}
+.parts-copy small{font-size:14px;color:#c8d5d3;line-height:1.6}
+.parts-link .parts-arrow{margin-left:auto;font-size:28px;color:var(--live)}
+@media(max-width:600px){.parts-link{padding:16px;gap:12px}.parts-link svg{width:48px;height:64px}.parts-link .parts-arrow{display:none}}
+.share-link{display:inline-flex;align-items:center;gap:20px;padding:20px;border:1px solid #727b80;border-radius:8px;background:#000;color:#fff;text-decoration:none}
+.share-link img{display:block;width:20px;height:20px;object-fit:contain;flex-shrink:0}
+.share-link:hover{border-color:#fff;color:#fff}
+.share-link:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:22px}
+a.card{display:flex;flex-direction:column;text-decoration:none;color:inherit;background:var(--bench);border:1px solid var(--line);border-radius:16px;overflow:hidden;
+  box-shadow:0 2px 0 #2b3134,0 6px 0 #1f2427,0 20px 34px rgba(0,0,0,.4);transition:transform .15s,border-color .15s}
+a.card:hover{transform:translateY(-4px);border-color:#b06c2a}
+a.card:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.pic{background:linear-gradient(#d9dcd6,#b9bdb7);aspect-ratio:16/8;max-width:100%}
+.pic svg{display:block;width:100%;height:100%}
+.body{padding:18px 20px 20px;display:flex;flex-direction:column;gap:10px;flex:1}
+.body h2{font-weight:400;font-size:26px;line-height:1.4;margin:0;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.body h2 span{font-family:var(--f-mono);font-size:12px;color:var(--live);background:#3a2a16;border-radius:6px;padding:2px 8px}
+.body p{margin:0;line-height:1.75;color:#d6d9d4}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.tags i{font-style:normal;font-size:12px;color:var(--muted);border:1px solid #3d474d;border-radius:999px;padding:2px 9px}
+.go{margin-top:auto;align-self:flex-start;font-weight:500;background:#3a2a16;border:1px solid #b06c2a;color:#ffe0b8;border-radius:10px;padding:9px 16px}
+a.card:hover .go{background:var(--accent);color:#1a1206}
+@media (prefers-reduced-motion:reduce){a.card{transition:none}}
+
+.sponsor{display:flex;flex-wrap:wrap;align-items:center;gap:14px 24px;padding:18px 22px;border:1px solid #b06c2a;border-left:5px solid var(--accent);border-radius:12px;background:linear-gradient(110deg,#382919,#22282c 75%)}
+.sponsor-brand{display:flex;flex-direction:column;gap:3px}
+.sponsor-brand small{font-size:11px;color:#c9b69d}
+.sponsor-brand strong{font:500 27px var(--f-body);letter-spacing:.04em;color:#ffe0b8}
+.sponsor-copy{flex:1;min-width:200px}
+.sponsor-copy p{margin:0;color:var(--ink);font-weight:500;font-size:16px}
+.sponsor-copy small{display:block;margin-top:5px;color:#c5c7c2;line-height:1.6}
+.sponsor-cta{display:inline-block;padding:12px 16px;border-radius:8px;background:var(--accent);color:#211407;font-weight:500;text-decoration:none;text-align:center}
+.sponsor-cta:hover{background:#ffb054}
+.sponsor-cta:focus-visible{outline:3px solid #fff;outline-offset:3px}
+@media(max-width:600px){.sponsor{padding:16px;gap:12px}.sponsor-copy{flex-basis:100%;min-width:0}.sponsor-cta{width:100%}}
+</style>
+<link rel="stylesheet" href="assets/lesson-language.css">
+<script defer src="assets/english-cache.js"></script>
+<script defer src="assets/lesson-terms.js"></script>
+<script defer src="assets/lesson-language.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <aside class="sponsor" aria-label="制作元 FA Labo のご案内">
+    <div class="sponsor-brand"><small>この教材の制作元</small><strong>FA Labo</strong></div>
+    <div class="sponsor-copy"><p>PLC更新・設備改修をお考えの方へ</p><small>PLC更新・制御盤改造・HMI/SCADA に対応。<br>現状調査から設計・現場の試運転までご相談いただけます。</small></div>
+    <a class="sponsor-cta" href="https://fa-labo.com/">PLC更新・設備改修を相談する ↗</a>
+  </aside>
+  <header>
+    <h1>遊んで学ぶ <em>制御と電気</em></h1>
+    <select class="language-picker" data-language aria-label="Language / 言語" translate="no"><option value="ja" lang="en">Japanese</option><option value="en" lang="en">English</option></select>
+    <p>触って、動かして、ときどき壊して覚える学習ソフトです。どちらから始めても大丈夫。まずはリレーのカチッという音から。</p>
+    <div class="header-actions">
+      <a class="parts-link" href="apps/click-relay.html?view=parts">
+        <svg viewBox="0 0 80 80" aria-hidden="true" focusable="false">
+          <rect x="1" y="1" width="78" height="78" rx="12" fill="#172729" stroke="#587477"/>
+          <path d="M20 65V47M60 65V47M20 19V8M60 19V8" stroke="#b7c9c8" stroke-width="3" fill="none"/>
+          <rect x="13" y="35" width="22" height="24" rx="4" fill="#d58b42"/>
+          <path d="M14 41H34M14 47H34M14 53H34" stroke="#82471d" stroke-width="2"/>
+          <path d="M24 35V26H51" stroke="#b7c9c8" stroke-width="5" fill="none"/>
+          <path d="M60 47V34L44 21" stroke="#ffc061" stroke-width="3" fill="none"/>
+          <circle cx="60" cy="19" r="4" fill="#ffc061"/><circle cx="60" cy="47" r="4" fill="#ffc061"/>
+          <circle cx="20" cy="65" r="4" fill="#b7c9c8"/><circle cx="60" cy="65" r="4" fill="#b7c9c8"/>
+        </svg>
+        <span class="parts-copy"><strong>部品のしくみだけを見る</strong><small>リレー・タイマー・スイッチなど16種類。中の動きを見て、しくみを学ぼう。</small></span>
+        <span class="parts-arrow" aria-hidden="true">→</span>
+      </a>
+    </div>
+  </header>
+
+  <div class="cards">
+    <a class="card" href="apps/click-relay.html">
+      <div class="pic"><svg viewBox="0 0 320 160" aria-hidden="true">
+        <rect x="0" y="0" width="320" height="160" fill="#c8ccc6"/>
+        <rect x="18" y="74" width="284" height="10" fill="#9ea3a6"/>
+        <rect x="40" y="30" width="70" height="88" rx="6" fill="rgba(235,245,250,.45)" stroke="#fff" stroke-width="1.5"/>
+        <rect x="50" y="62" width="20" height="44" rx="4" fill="#c97a3a"/><rect x="48" y="52" width="46" height="6" rx="2" fill="#a9aeb2"/>
+        <rect x="82" y="56" width="3" height="46" fill="#d9b84a"/><rect x="92" y="56" width="3" height="46" fill="#d9b84a"/>
+        <circle cx="102" cy="38" r="4" fill="#ff3b2b"/>
+        <rect x="128" y="34" width="60" height="84" rx="6" fill="#e8e2d2"/><circle cx="158" cy="66" r="18" fill="#fff" stroke="#7d7666"/><line x1="158" y1="66" x2="168" y2="54" stroke="#b2261c" stroke-width="3"/>
+        <rect x="18" y="126" width="284" height="28" rx="4" fill="#d4d7d3"/>
+        <rect x="214" y="30" width="34" height="34" rx="6" fill="#2f9e43"/><text x="231" y="53" text-anchor="middle" style="font:500 14px sans-serif;fill:#fff">入</text>
+        <rect x="258" y="30" width="34" height="34" rx="6" fill="#c8281c"/><text x="275" y="53" text-anchor="middle" style="font:500 14px sans-serif;fill:#fff">切</text>
+        <circle cx="231" cy="96" r="15" fill="#5dff6e" stroke="#333"/><circle cx="275" cy="96" r="15" fill="#5f3a36" stroke="#333"/>
+        <path d="M110 118 C140 150 200 150 231 111" fill="none" stroke="#e8c23a" stroke-width="3"/><path d="M75 118 C100 156 240 156 275 111" fill="none" stroke="#d8352a" stroke-width="3"/>
+      </svg></div>
+      <div class="body">
+        <h2>カチッとリレー<span>20面</span></h2>
+        <p>リレー盤のお手本を触って、自己保持・インターロック・タイマーなどのリレーシーケンスを覚えます。線を抜いたり足したりして遊べて、部品の中のしくみも見られます。</p>
+        <div class="tags"><i>自己保持</i><i>タイマー</i><i>インターロック</i><i>センサー</i><i>配線直し</i></div>
+        <span class="go">はじめる →</span>
+      </div>
+    </a>
+
+    <a class="card" href="apps/device-playground.html">
+      <div class="pic"><svg viewBox="0 0 320 160" aria-hidden="true">
+        <rect x="0" y="0" width="320" height="160" fill="#c8ccc6"/>
+        <rect x="0" y="130" width="320" height="30" fill="#8b7a62"/>
+        <rect x="20" y="44" width="70" height="86" rx="5" fill="rgba(255,255,255,.35)" stroke="#fff" stroke-width="2"/>
+        <rect x="22" y="70" width="66" height="58" fill="#5fa8e8"/><path d="M28 120 q6 -10 12 0 t12 0 t12 0 t12 0" fill="none" stroke="#ff5a1f" stroke-width="4"/>
+        <rect x="108" y="40" width="70" height="44" rx="5" fill="#2c3136"/><text x="170" y="70" text-anchor="end" style="font:700 22px monospace;fill:#ff5a3c">60.0</text>
+        <rect x="196" y="58" width="96" height="62" rx="12" fill="#3b5d82"/><text x="244" y="97" text-anchor="middle" style="font:700 22px sans-serif;fill:#dfe8f0">M</text>
+        <rect x="120" y="96" width="44" height="54" rx="8" fill="#f4d21e"/><rect x="126" y="104" width="32" height="16" rx="2" fill="#c9d6b8"/><text x="155" y="117" text-anchor="end" style="font:700 11px monospace;fill:#1c2a14">55A</text>
+        <path d="M178 62 C190 62 186 80 196 80" fill="none" stroke="#d8352a" stroke-width="3"/>
+      </svg></div>
+      <div class="body">
+        <h2>機器あそび場<span>9部屋</span></h2>
+        <p>温調器、モーター、テスター、4-20mA、漏電、センサー、空気圧などの機器を部屋ごとに触って、原理を学びます。間違った使い方をすると壊れて、その理由がわかります。</p>
+        <div class="tags"><i>温調器・SSR</i><i>スターデルタ</i><i>テスター</i><i>4-20mA</i><i>漏電・メガー</i><i>空気圧</i></div>
+        <span class="go">はじめる →</span>
+      </div>
+    </a>
+  </div>
+  <div class="share-footer">
+<a class="share-link" href="https://x.com/intent/tweet?url=https%3A%2F%2Flearn.fa-labo.com%2F&amp;text=%E9%81%8A%E3%82%93%E3%81%A7%E5%AD%A6%E3%81%B6%20%E5%88%B6%E5%BE%A1%E3%81%A8%E9%9B%BB%E6%B0%97%20%7C%20FA%20Labo" target="_blank" rel="noopener noreferrer"><img src="assets/x-logo-white.png" alt="" width="20" height="20"><span>Xでシェアする ↗</span></a>
+  </div>
+  <footer><a class="license-link" href="LICENSE.txt" target="_blank" rel="noopener">教材・プログラムの利用条件</a></footer>
+</div>
+</body>
+</html>

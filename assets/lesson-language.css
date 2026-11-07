@@ -1,0 +1,12 @@
+.language-picker{font:inherit;font-size:14px;color:var(--ink,#eee);background:#22292d;border:1px solid var(--line,#58605c);border-radius:6px;padding:5px 8px;max-width:100%}
+.license-link{color:var(--muted);text-underline-offset:3px}
+/* Reserve room for both labels so toggling a control does not move its neighbours. */
+button:is(#lid,#drain,#hs,#ilk,#brk,#measBreaker,#flt,#r250,#run,#touch,#cam,#wirePower,#snd,#reset.t,#partPause){box-sizing:border-box;flex-shrink:0;max-width:100%;width:var(--toggle-width,16em)}
+button:is(#run,#wirePower,#partPause){--toggle-width:8em}
+button#snd{--toggle-width:9em}
+button:is(#lid,#drain,#hs,#r250){--toggle-width:14em}
+button:is(#touch,#cam){--toggle-width:22em}
+button#reset.t{--toggle-width:18em}
+#referenceEnds:not([hidden]){display:block;margin-top:8px;color:var(--ink);font-size:14px}
+html:lang(en) .stages button,html:lang(en) .rooms button{white-space:normal}
+html:lang(en) .ptext,html:lang(en) .notes,html:lang(en) .say{overflow-wrap:anywhere}
