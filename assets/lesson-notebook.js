@@ -2,8 +2,8 @@
 function setupNotebook(app,notes,got,refresh){
   const $=id=>document.getElementById(id);
   const prefix='seigyo-asobiba.note.v1.';
-  const groups=['relay','device','elevator'];
-  const records={relay:new Set(),device:new Set(),elevator:new Set()};
+  const groups=['relay','device','elevator','pinball'];
+  const records={relay:new Set(),device:new Set(),elevator:new Set(),pinball:new Set()};
   const memoryOnly=new Set();
   let waitForOperation=false;
   const known=new Set(notes.map(([id])=>id));
@@ -46,7 +46,7 @@ function setupNotebook(app,notes,got,refresh){
   window.addEventListener('pageshow',e=>{if(e.persisted){readSaved();refresh();}});
 
   $('noteClear').onclick=()=>{
-    const scope={relay:'カチッとリレー（全20面）',device:'機器あそび場（全9部屋）',elevator:'リレー式エレベーター'}[app];
+    const scope={relay:'カチッとリレー（全20面）',device:'機器あそび場（全9部屋）',elevator:'リレー式エレベーター',pinball:'リレー式ピンボール'}[app];
     const question=scope+'の発見記録を、このブラウザーからすべて消去しますか？';
     if(!window.confirm(window.lessonLanguage?.text(question)??question))return;
     readSaved();
@@ -61,13 +61,14 @@ function setupNotebook(app,notes,got,refresh){
   };
   // 動作中の盤や別タブのシミュレーションが、消した直後に同じ発見を書き戻すのを防ぐ。
   for(const type of ['pointerdown','keydown','click','input'])document.addEventListener(type,e=>{
-    if(e.target.closest?.('#tabs,#rooms,#panel,#diag,#timers,#reset,#ctl,#scene,#fix'))waitForOperation=false;
+    if(e.target.closest?.('#tabs,#rooms,#panel,#diag,#timers,#reset,#ctl,#scene,#fix,#playControls'))waitForOperation=false;
     if(type==='keydown'&&app==='relay'&&/^[1-4]$/.test(e.key))waitForOperation=false;
+    if(type==='keydown'&&app==='pinball'&&['z','Z','ArrowLeft','/','ArrowRight',' ','c','C','Enter','n','N','a','A'].includes(e.key)&&!e.target.closest('input,select,textarea,button'))waitForOperation=false;
     if(type==='keydown'&&app==='elevator'&&/^[1-3]$/.test(e.key)&&!e.target.closest('input,select,textarea,button'))waitForOperation=false;
   },true);
   $('noteExport').onclick=()=>{
     readSaved();
-    const backup={format:'seigyo-asobiba.notes',version:1,relay:[...records.relay].sort(),device:[...records.device].sort(),elevator:[...records.elevator].sort()};
+    const backup={format:'seigyo-asobiba.notes',version:1,relay:[...records.relay].sort(),device:[...records.device].sort(),elevator:[...records.elevator].sort(),pinball:[...records.pinball].sort()};
     const url=URL.createObjectURL(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}));
     const link=document.createElement('a');
     link.href=url;link.download='seigyo-asobiba-notes.json';link.click();
@@ -83,7 +84,7 @@ function setupNotebook(app,notes,got,refresh){
       if(file.size>256*1024)throw new Error();
       const backup=JSON.parse(await file.text());
       if(backup?.format!=='seigyo-asobiba.notes'||backup.version!==1||
-        !groups.every(group=>(group==='elevator'&&backup[group]===undefined)||(Array.isArray(backup[group])&&backup[group].every(validId))))throw new Error();
+        !groups.every(group=>(['elevator','pinball'].includes(group)&&backup[group]===undefined)||(Array.isArray(backup[group])&&backup[group].every(validId))))throw new Error();
       for(const group of groups)for(const id of new Set(backup[group]||[]))save(group,id);
       refresh();
       status.textContent='記録を読み込み、今までの発見とまとめました。';

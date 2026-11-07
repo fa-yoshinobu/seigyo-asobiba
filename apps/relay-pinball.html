@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>リレー式ピンボール</title>
+<meta name="description" content="ピンボールで遊びながら、リレー・得点モーター・得点リール・フリッパーのしくみを観察する無料教材。制作：FA Labo。">
+<link rel="canonical" href="https://learn.fa-labo.com/apps/relay-pinball.html">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: 左に裏箱+盤面(遊ぶ所)、右に操作・いま起きたこと・ラダー図/裏の機構・記録。単一のダーク作業場テーマ */
+:root{
+  color-scheme:dark;
+  --bg:#191d20;--bench:#22282c;--ink:#ebe7de;--muted:#98a2a6;--line:#343c41;--accent:#ff8a1f;--live:#ffc061;--bad:#ff4b3a;
+  --f-display:"Zen Kaku Gothic New","Zen Kaku Gothic New",system-ui,sans-serif;
+  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic","Meiryo",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;background-image:radial-gradient(1200px 700px at 30% 10%,#262d31 0%,var(--bg) 70%)}
+.pbw{}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 28px;max-width:1520px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px}
+h1{font-family:var(--f-display);font-weight:400;font-size:28px;margin:0;line-height:1.1}
+h1 em{font-style:normal;color:var(--accent)}
+header p{margin:0;color:var(--muted)}
+.grid{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:16px;align-items:start}
+.grid.top{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
+.now{min-height:6.5em}
+@media (max-width:1000px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--bench);border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0}
+.card h2{font-family:var(--f-display);font-weight:400;font-size:16px;margin:0 0 8px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.card h2 span{font-family:var(--f-body);font-size:12px;color:var(--muted)}
+.seg2{display:inline-flex;border:1px solid #3d474d;border-radius:9px;overflow:hidden}
+.seg2 button{font:inherit;font-family:var(--f-body);font-size:13px;font-weight:500;background:#2b3236;color:var(--muted);border:0;padding:6px 14px;cursor:pointer}
+.seg2 button+button{border-left:1px solid #3d474d}
+.seg2 button[aria-pressed="true"]{background:#4a3a22;color:#ffd9a8}
+.bld{background:#2a3034;border-radius:10px;padding:6px}
+.bld svg{display:block;width:100%;height:auto;max-height:calc(100vh - 360px);min-height:360px;margin:0 auto;user-select:none}
+.lad svg{display:block;width:100%;height:auto;user-select:none}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.sticky{position:sticky;top:6px}
+@media (max-width:1000px){.sticky{position:static}}
+.lad{background:#f3f0e7;border-radius:8px;overflow-x:auto}
+.lad svg{min-width:520px}
+.now{font-size:15px;line-height:1.75;background:#15191b;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:10px 14px;min-height:5.4em}
+.now b.ph{font-family:var(--f-display);font-weight:400;color:var(--live);font-size:17px;display:block;margin-bottom:2px}
+.steps{display:flex;flex-wrap:wrap;gap:4px;margin:10px 0 0}
+.steps span{font-size:12px;font-weight:500;color:var(--muted);background:#1b2023;border:1px solid var(--line);border-radius:999px;padding:3px 10px}
+.steps span.on{background:#4a3214;border-color:#b06c2a;color:#ffe0b8}
+.ctl{display:grid;gap:8px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.lbl{font-size:12px;color:var(--muted);min-width:6em}
+.btn{font:inherit;font-weight:500;font-size:13px;color:var(--ink);background:#2b3236;border:1px solid #3d474d;border-radius:8px;padding:7px 12px;cursor:pointer;box-shadow:0 2px 0 #0d1012}
+.btn:active{transform:translateY(1px);box-shadow:0 1px 0 #0d1012}
+.btn.call{min-width:3.4em;font-family:var(--f-mono)}
+.btn.call.lit{background:#5a3a10;border-color:#ffb347;color:#ffe0b8;box-shadow:0 0 10px rgba(255,179,71,.4)}
+.btn.warn{border-color:#8a5a2a;color:#ffd0a0}
+.btn[aria-pressed="true"]{background:#5a2a10;border-color:#ff8a1f;color:#ffd0a0}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.log{list-style:none;margin:0;padding:0;font-size:13px;line-height:1.55;max-height:260px;overflow-y:auto;display:grid;gap:3px}
+.log li{display:grid;grid-template-columns:8.5em 1fr;gap:8px;color:#cfd3cf}
+.log li .k{font-family:var(--f-mono);font-weight:500;color:var(--live)}
+.log li.off .k{color:#7d8a84}
+.log li.warn{color:#ffb3a8}
+.src{font-size:12px;color:var(--muted);line-height:1.7}
+.src a{color:#9fc8ff}
+.lg .ct{stroke:#2c2c2c;stroke-width:2.2;fill:none;stroke-linecap:round}
+.lg .on .ct{stroke:#e46a00}
+.lg .wire{stroke:#2c2c2c;stroke-width:1.8;fill:none}
+.lg .rung.live .wire{stroke:#e46a00;stroke-width:2.6}
+.lg text{font-family:var(--f-body);font-size:10px;fill:#222}
+.lg .rl{font-weight:500;font-size:11px}
+.lg .cm{font-size:10px;fill:#7a5a30}
+.lg .coil{fill:#fff;stroke:#2c2c2c;stroke-width:2}
+.lg .coil.on{fill:#ffb347}
+.svgt{font-family:var(--f-body);font-weight:500;pointer-events:none}
+.svgm{font-family:var(--f-mono);font-weight:500;pointer-events:none}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+.grid.pb{grid-template-columns:auto minmax(0,1fr)}
+@media (max-width:1000px){.grid.pb{grid-template-columns:minmax(0,1fr)}}
+.game{padding:8px;background:#0b0f12}
+.game canvas{display:block;margin:0 auto;max-width:100%;height:auto}
+.game canvas:focus{outline:none}
+.keys{font-size:12px;color:var(--muted);line-height:1.8}
+kbd{font-family:var(--f-mono);font-size:11px;background:#15191b;border:1px solid #3d474d;border-bottom-width:2px;border-radius:4px;padding:0 5px;color:var(--ink)}
+.btn kbd{margin-left:4px}
+
+*{box-sizing:border-box}body{margin:0}b,strong{font-weight:500}.home{color:#ffd9a8;text-underline-offset:3px}html:lang(en) h1 em{margin-left:.2em}
+.grid.pb{grid-template-columns:minmax(300px,420px) minmax(0,1fr)}.game canvas{width:100%;height:auto}.lad{max-height:600px;overflow:auto}.lad svg{min-width:760px;overflow:hidden}.sticky{position:static}
+.touch-controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.touch-controls button{flex:1;touch-action:none;min-height:48px}.intro,.guide{line-height:1.8}.guide{margin:10px 0}.guide strong{color:var(--live)}.diagram-tools{margin:10px 0}
+summary{cursor:pointer;color:#ffd9a8;line-height:1.8}details[open]>summary{margin-bottom:12px}.notes{list-style:none;padding:0;line-height:1.8}.notes li{padding:8px 0;border-bottom:1px solid var(--line)}.notes small{display:block;color:var(--muted)}.notes .got{color:#ffd9a8}
+#pause,#slow,#snd,#reset{width:10em;flex-shrink:0}.btn[aria-pressed="true"]{border-color:var(--accent)}select{font:inherit;max-width:100%;padding:8px;color:var(--ink);background:var(--bench);border:1px solid var(--line);border-radius:6px}
+@media(max-width:1000px){.grid.pb{grid-template-columns:minmax(0,1fr)}.grid.pb>.col{display:contents}.grid.pb>.col:first-child>.card{order:1}.grid.pb>.col:last-child>.card{order:2}.grid.pb>.col:last-child>.card:first-child{order:0}.game{max-width:420px;margin:auto;width:100%}.wrap{padding-inline:12px}.log li{grid-template-columns:5em 1fr}}
+.sponsor{display:flex;flex-wrap:wrap;align-items:center;gap:14px 24px;padding:18px 22px;border:1px solid #b06c2a;border-left:5px solid var(--accent);border-radius:12px;background:linear-gradient(110deg,#382919,#22282c 75%)}
+.sponsor-brand{display:flex;flex-direction:column;gap:3px}
+.sponsor-brand small{font-size:11px;color:#c9b69d}
+.sponsor-brand strong{font:500 27px var(--f-body);letter-spacing:.04em;color:#ffe0b8}
+.sponsor-copy{flex:1;min-width:200px}
+.sponsor-copy p{margin:0;color:var(--ink);font-weight:500;font-size:16px}
+.sponsor-copy small{display:block;margin-top:5px;color:#c5c7c2;line-height:1.6}
+.sponsor-cta{display:inline-block;padding:12px 16px;border-radius:8px;background:var(--accent);color:#211407;font-weight:500;text-decoration:none;text-align:center}
+.sponsor-cta:hover{background:#ffb054}
+.sponsor-cta:focus-visible{outline:3px solid #fff;outline-offset:3px}
+@media(max-width:600px){.sponsor{padding:16px;gap:12px}.sponsor-copy{flex-basis:100%;min-width:0}.sponsor-cta{width:100%}}
+</style>
+<link rel="stylesheet" href="../assets/lesson-language.css">
+<script src="../assets/lesson-notebook.js"></script>
+<script defer src="../assets/english-cache.js"></script>
+<script defer src="../assets/lesson-terms.js"></script>
+<script defer src="../assets/pinball-english.js"></script>
+<script defer src="../assets/lesson-language.js"></script>
+</head><body>
+<div class="wrap"><a class="home" href="../index.html">← メニューに戻る</a><aside class="sponsor" aria-label="制作元 FA Labo のご案内">
+    <div class="sponsor-brand"><small>この教材の制作元</small><strong>FA Labo</strong></div>
+    <div class="sponsor-copy"><p>PLC更新・設備改修をお考えの方へ</p><small>PLC更新・制御盤改造・HMI/SCADA に対応。<br>現状調査から設計・現場の試運転までご相談いただけます。</small></div>
+    <a class="sponsor-cta" href="https://fa-labo.com/">PLC更新・設備改修を相談する ↗</a>
+  </aside>
+  <header>
+    <h1>リレー式<em>ピンボール</em></h1><select class="language-picker" data-language aria-label="Language / 言語" translate="no"><option value="ja" lang="en">Japanese</option><option value="en" lang="en">English</option></select>
+    <p>遊びながら裏側を見る。玉が当たるたびに、リレー・得点モーター・リール・ステッパーがどう動くかがわかります。</p>
+  </header>
+<p class="intro">① クレジット追加 → ② スタート → ③ 打ち出すボタンを押して離す。左右のフリッパーで玉を打ち返そう。自動プレイで動きを観察することもできます。</p>
+  <div class="grid pb">
+   <div class="col sticky">
+    <div class="card game">
+      <canvas id="bb" aria-label="裏箱(得点表示)"></canvas>
+      <canvas id="pf" tabindex="0" aria-label="盤面"></canvas>
+      <div class="touch-controls" id="playControls"><button class="btn" id="flipperL">左フリッパー</button><button class="btn" id="launch">打ち出す</button><button class="btn" id="flipperR">右フリッパー</button></div>
+    </div>
+   </div>
+   <div class="col">
+    <div class="card">
+      <div class="ctl" id="ctl">
+        <div class="row"><span class="lbl">ゲーム</span><button class="btn" id="coin">クレジット追加 <kbd>C</kbd></button><button class="btn" id="start">スタート <kbd>Enter</kbd></button><button class="btn warn" id="nudge">台を揺らす <kbd>N</kbd></button></div>
+<details><summary>ゲームの設定</summary>        <div class="row"><span class="lbl">球数プラグ</span><span>5球固定</span>
+          <span class="lbl" style="min-width:auto;margin-left:10px">リプレイ点</span><span class="seg2" id="rep"><button data-r="2000" aria-pressed="false">2,000</button><button data-r="3000" aria-pressed="true">3,000</button><button data-r="4000" aria-pressed="false">4,000</button></span></div>
+</details>        <div class="row"><span class="lbl">速さ</span><button class="btn" id="slow" aria-pressed="false">ゆっくり(1/4)</button><button class="btn" id="auto" aria-pressed="false">自動プレイ <kbd>A</kbd></button><button class="btn" id="snd" aria-pressed="false">音 OFF</button><button class="btn" id="pause" aria-pressed="false">一時停止</button><button class="btn" id="reset">最初に戻す</button></div>
+        <div class="keys">フリッパー:左 <kbd>Z</kbd>/<kbd>←</kbd>  右 <kbd>/</kbd>/<kbd>→</kbd>  玉を打ち出す:<kbd>スペース</kbd>を押して引き、離す</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="now" id="now"></div>
+    </div>
+    <div class="card">
+      <h2><span class="seg2" id="view"><button data-v="lad" aria-pressed="true">ラダー図</button><button data-v="mech" aria-pressed="false">裏の機構</button></span><span id="viewNote">展開接続図。電気が通っている所がオレンジに光ります</span></h2>
+      <label>観察する回路 <select id="circuitGroup"></select></label><p class="guide" id="guide"></p>
+      <div class="row diagram-tools"><button class="btn" id="diagramGrow">高さを広げる（全体表示）</button><button class="btn" id="diagramShrink">高さを狭める −</button><button class="btn" id="diagramZoomIn">拡大 ＋</button><button class="btn" id="diagramZoomOut">縮小 −</button><output id="diagramZoom">100%</output></div>
+      <div id="circuitDiagram" class="lad" tabindex="0" aria-label="回路図。左右・上下にスクロールできます"><svg id="lad" class="lg" viewBox="0 0 640 1200" aria-label="リレー回路図"></svg><svg id="mech" viewBox="0 0 640 640" aria-label="裏箱と盤の下の機構" style="display:none"></svg></div>
+    </div>
+    <div class="card">
+      <details><summary>リレーの動いた順番を見る</summary><p class="keys">新しいものが上</p><ul class="log" id="log"></ul></details>
+    </div>
+   </div>
+  </div>
+
+  <section class="card"><h2>発見ノート <span id="cnt"></span></h2><ul id="notes" class="notes"></ul><small id="noteSaveInfo">発見はこのブラウザーに自動保存されます。</small><div class="row"><button class="btn" id="noteExport">記録を書き出す</button><button class="btn" id="noteImport">記録を読み込む</button><button class="btn" id="noteClear">記録をクリア</button><input id="noteFile" type="file" accept=".json,application/json" hidden></div><small id="noteStatus" role="status"></small></section>
+  <details class="card src"><summary>この教材のモデルと参考資料</summary><p>1人用のリレー式ピンボールを簡略化した観察教材です。盤面はオリジナルで、玉の動きは2Dモデルです。クレジット追加はボタン、ティルトはその玉が落ちるまで。実在の機種の配線図ではありません。</p><p>参考資料：Pinrepair EM repair、PinWiki EM Repair、Home Pinball Repair、Fireball取扱説明書。</p></details>
+  <footer><a class="home" href="../LICENSE.txt">教材・プログラムの利用条件</a></footer>
+</div>
+
+<script>
+(()=>{
+const NS='http://www.w3.org/2000/svg';
+const $=id=>document.getElementById(id);
+function el(t,a,p){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;}
+function tx(p,x,y,s,a={}){const f=a.fill;delete a.fill;if(a.class==='cm')a['data-translation-width']=240;const t=el('text',Object.assign({x,y},a),p);if(f)t.style.fill=f;t.textContent=s;return t;}
+
+/* ---------- 音 ---------- */
+let AC=null,sound=false;
+function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}if(AC&&AC.state==='suspended')AC.resume();return AC;}
+function noise(freq,gain,len,q=1){if(!sound||!AC)return;const a=AC,t=a.currentTime,n=Math.floor(a.sampleRate*len),b=a.createBuffer(1,n,a.sampleRate),d=b.getChannelData(0);
+  for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,5);const s=a.createBufferSource();s.buffer=b;const f=a.createBiquadFilter();f.type='bandpass';f.frequency.value=freq;f.Q.value=q;
+  const g=a.createGain();g.gain.value=gain;s.connect(f).connect(g).connect(a.destination);s.start(t);}
+const click=()=>noise(3000,.08,.025);
+const thump=()=>noise(300,.18,.08,.7);
+const knock=()=>noise(140,.22,.15,.6);
+function bell(f){if(!sound||!AC)return;const t=AC.currentTime;[1,2.76].forEach((m,i)=>{const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f*m;g.gain.setValueAtTime(i?.03:.09,t);g.gain.exponentialRampToValueAtTime(.0005,t+(i?.4:1.1));o.connect(g).connect(AC.destination);o.start(t);o.stop(t+1.2);});}
+let motorHum=null;
+function humSet(on){if(!AC)return;if(!motorHum){motorHum={o:AC.createOscillator(),g:AC.createGain()};motorHum.o.type='square';motorHum.o.frequency.value=60;const f=AC.createBiquadFilter();f.type='lowpass';f.frequency.value=220;motorHum.o.connect(f).connect(motorHum.g).connect(AC.destination);motorHum.g.gain.value=0;motorHum.o.start();}
+  motorHum.g.gain.value=sound&&on?.05:0;}
+
+/* ---------- 状態 ---------- */
+const BALLS=5;
+const RN=['S','V','Q','R','TL','B0','B1','B2','R10','R100','K5','CA'];
+const P={sw:{start:0,coin:0,fl:0,fr:0,out:1,shoot:0,tilt:0,skirt:[0,0,0],lane:[0,0,0],t10:0,t500:0},
+  R:{},motor:0,reel:[0,0,0],show:[0,0,0],BC:0,credit:0,rep:3000,repP:0,
+  flip:[{a:0,eos:1,on:0},{a:0,eos:1,on:0}],bump:[0,0,0],bumpT:[0,0,0],
+  ball:{x:200,y:786,vx:0,vy:0,st:'out',k:0},pend:{amp:0,ph:0},pull:0,pulling:false,
+  slow:false,caWhy:''};
+RN.forEach(n=>P.R[n]={on:0,t:0});P.R.Q.on=1;
+const INITIAL=JSON.stringify(P);
+const r=n=>P.R[n].on;
+const pos=()=>P.motor%120;
+const camA=()=>{const p=pos();for(let k=0;k<5;k++){const s=10+k*21;if(p>=s&&p<s+10)return true;}return false;};
+const camB=()=>{const p=pos();return p>=60&&p<72;};
+const runout=()=>pos()>6;
+const notZero=()=>P.reel.some(v=>v)||P.BC>0;
+const PF=()=>!r('Q')&&!r('TL');
+const bEOS=i=>P.bump[i]>=1;
+const score=()=>P.reel[2]*1000+P.reel[1]*100+P.reel[0]*10;
+
+const NAMES={S:['スタートリレー','クレジットがあるのでスタート','すぐ切れる(リセットリレーが入ったので)'],
+ V:['リセットリレー','得点モーターを回し、リールとボールカウントを0へ','全部0になったので解除'],
+ Q:['ゲームオーバーリレー','入った=ゲーム終わり。コイルの電気を切る','切れた=ゲーム開始'],
+ R:['ボールリターンリレー','アウトホールに玉がある→得点モーターを回す','玉が出たので解除'],
+ TL:['ティルトリレー','振り子が触れた。盤面のランプとコイルの電気が切れる','玉が落ちたので解除'],
+ B0:['バンパーリレー1','スカートが押された→自己保持してコイルを打つ','バンパーが打ち終わり、EOSが開いて解除'],
+ B1:['バンパーリレー2','スカートが押された→自己保持してコイルを打つ','EOSが開いて解除'],
+ B2:['バンパーリレー3','スカートが押された→自己保持してコイルを打つ','EOSが開いて解除'],
+ R10:['10点リレー','10の位のリールを1つ進める',''],R100:['100点リレー','100の位のリールを1つ進める',''],
+ K5:['500点リレー','得点モーターを回す→カムAが5回たたき100点リレーが5回入る','モーターが定位置に戻ったので解除'],
+ CA:['クレジット加算','クレジットユニットを1つ進める','']};
+const QUIET=new Set(['R10','R100','B0','B1','B2']);
+
+/* ---------- 説明欄 ---------- */
+let nowKey='';
+function say(key,title,html){if(key===nowKey)return;nowKey=key;$('now').innerHTML='<b class="ph">'+title+'</b>'+html;}
+const logEl=$('log');
+function log(k,txt,cls){const li=document.createElement('li');if(cls)li.className=cls;li.innerHTML='<span class="k">'+k+'</span><span>'+txt+'</span>';logEl.prepend(li);while(logEl.children.length>60)logEl.lastChild.remove();}
+
+/* ---------- 盤面の形 ---------- */
+const W=400,H=800,BR=8;
+const segs=[];const seg=(x1,y1,x2,y2,o={})=>segs.push(Object.assign({x1,y1,x2,y2,e:.5},o));
+// 外周:左の壁、上の円弧、右の外壁
+seg(20,600,20,200);
+const ARC={cx:207.5,cy:200,r:187.5};
+for(let i=0;i<28;i++){const a1=Math.PI+i/28*Math.PI,a2=Math.PI+(i+1)/28*Math.PI;seg(ARC.cx+ARC.r*Math.cos(a1),ARC.cy+ARC.r*Math.sin(a1),ARC.cx+ARC.r*Math.cos(a2),ARC.cy+ARC.r*Math.sin(a2),{e:.4});}
+seg(395,200,395,790);
+// シューターレーン内壁と一方通行ゲート
+seg(368,250,368,790);seg(366,244,395,226,{oneway:1,e:.2});
+// インレーン(フリッパーへの導き)
+seg(20,600,128,694,{e:.3,rad:6});seg(368,600,272,694,{e:.3,rad:6});
+// ロールオーバーの仕切り
+[110,170,230,290].forEach(x=>seg(x,62,x,110,{e:.4,post:1}));
+// 10点ターゲット(左の壁・右の壁)と500点ターゲット
+seg(21,400,21,440,{tgt:'t10',e:.6,show:'L'});seg(367,400,367,440,{tgt:'t10',e:.6,show:'R'});
+seg(176,466,224,474,{tgt:'t500',e:.6,show:'C'});
+// ゴム柱
+const posts=[{x:60,y:520,r:9},{x:328,y:520,r:9},{x:86,y:80,r:8}];
+const bumpers=[{x:140,y:270},{x:260,y:270},{x:200,y:345}];const BRAD=24;
+const lanes=[140,200,260];
+const FLIP=[{px:128,py:694,dir:1},{px:272,py:694,dir:-1}];const FLEN=64,REST=0.52,UP=-0.42;
+FLIP.forEach((f,i)=>{P.flip[i].a=REST;});
+
+/* ---------- 回路の計算(1ステップ) ---------- */
+const DLY_ON=.012,DLY_OFF=.016;
+function coils(){const s=P.sw;return {
+  S:s.start&&P.credit>0&&!r('V')&&r('Q'),
+  V:r('S')||(r('V')&&notZero()),
+  Q:(r('R')&&P.BC===BALLS&&camB())||(r('Q')&&!r('S')),
+  R:s.out&&!r('Q')&&!r('V'),
+  TL:(s.tilt||r('TL'))&&!r('R'),
+  B0:PF()&&(s.skirt[0]||(r('B0')&&!bEOS(0))),B1:PF()&&(s.skirt[1]||(r('B1')&&!bEOS(1))),B2:PF()&&(s.skirt[2]||(r('B2')&&!bEOS(2))),
+  R10:PF()&&(s.t10||r('B0')||r('B1')||r('B2')),
+  R100:PF()&&(s.lane.some(v=>v)||(r('K5')&&camA())),
+  K5:PF()&&(s.t500||(r('K5')&&runout())),
+  CA:(s.coin||P.repP>0)&&P.credit<15};}
+// リレー以外のコイル(ソレノイド・ステッパー)
+function sols(){return {
+  M:r('V')||r('R')||r('K5')||runout(),
+  FL:PF()&&P.sw.fl,FR:PF()&&P.sw.fr,
+  C10:r('R10')||(r('V')&&camA()&&P.reel[0]>0),
+  C100:r('R100')||(r('V')&&camA()&&P.reel[1]>0),
+  C1000:r('V')&&camA()&&P.reel[2]>0,
+  KO:r('R')&&camB()&&P.BC!==BALLS,
+  BCup:P.sw.shoot&&!r('Q'),
+  BC0:r('V')&&camB(),
+  CRm:r('S'),CRp:r('CA')};}
+let SO={};
+function stepReel(i,add){const was=P.reel[i];P.reel[i]=(was+1)%10;bell([1568,1175,880][i]);
+  if(add&&was===9&&i<2){stepReel(i+1,true);}
+  if(add&&(i>=1)&&!r('V')){const t=P.rep;if(P.reel[2]===Math.floor(t/1000)&&P.reel[1]===Math.floor(t%1000/100)){P.repP=.06;P.caWhy='replay';}}}
+function logic(dt){
+  const C=coils();
+  for(const n of RN){const R=P.R[n],want=C[n]?1:0;if(want!==R.on){R.t+=dt;if(R.t>=(want?DLY_ON:DLY_OFF)){R.on=want;R.t=0;onRelay(n,want);}}else R.t=0;}
+  const N=sols(),pv=SO;SO=N;const rise=k=>N[k]&&!pv[k];
+  if(N.M)P.motor+=135*dt;
+  if(rise('C10'))stepReel(0,!r('V'));
+  if(rise('C100'))stepReel(1,!r('V'));
+  if(rise('C1000'))stepReel(2,false);
+  if(rise('KO'))kick();
+  if(rise('BCup')&&P.BC<5){P.BC++;click();log('BC','ボールカウントが'+P.BC+'球目に進んだ');}
+  if(rise('BC0')&&P.BC){P.BC=0;click();}
+  if(rise('CRm')&&P.credit>0){P.credit--;click();}
+  if(rise('CRp')){P.credit=Math.min(15,P.credit+1);if(P.caWhy==='replay'){knock();say('ca'+Math.random(),'リプレイ!','得点がリプレイ点に達し、リールの接点(プラグで選んだ位置)が閉じました。クレジット加算コイルがクレジットユニットを1つ進め、<b>ノッカー</b>が「ゴン!」と鳴ります。');}else click();P.caWhy='';}
+  if(P.repP>0)P.repP-=dt;
+  humSet(N.M);
+  // バンパーのプランジャー
+  for(let i=0;i<3;i++){const on=r('B'+i);const was=P.bumpT[i];P.bump[i]=on?Math.min(1,P.bump[i]+dt/.012):Math.max(0,P.bump[i]-dt/.03);
+    if(on&&!was){thump();const b=P.ball,u=bumpers[i];const dx=b.x-u.x,dy=b.y-u.y,d=Math.hypot(dx,dy);if(b.st==='play'&&d<BRAD+BR+8){b.vx=dx/d*430;b.vy=dy/d*430;}}P.bumpT[i]=on;}
+  // フリッパー
+  [['FL',0],['FR',1]].forEach(([k,i])=>{const f=P.flip[i],on=N[k];if(on&&!f.on)thump();f.on=on;
+    const pa=f.a;if(on){f.a=Math.max(UP,f.a-28*dt);}else f.a=Math.min(REST,f.a+14*dt);f.w=(f.a-pa)/dt;f.eos=!(f.a<=UP+0.035);});
+  // スイッチのタイマー
+  for(const k of ['t10','t500','coin','start'])if(P.sw[k]>0){P.sw[k]-=dt;if(P.sw[k]<=0)P.sw[k]=0;}
+  P.sw.lane=P.sw.lane.map(v=>Math.max(0,v-dt));
+  // 振り子(ティルト)
+  const pd=P.pend;pd.ph+=dt*2*Math.PI*1.6;pd.amp*=Math.exp(-.7*dt);P.sw.tilt=Math.abs(pd.amp*Math.sin(pd.ph))>1?1:0;
+  explain();
+}
+function onRelay(n,on){if(!QUIET.has(n))click();const nm=NAMES[n];if(!nm)return;const t=on?nm[1]:nm[2];if(!t&&!on)return;
+  if(!QUIET.has(n)||n==='K5')log(n,(on?'ON:':'OFF:')+nm[0]+(t?' — '+t:''),on?'':'off');
+  if(n==='TL'&&on)say('tilt','ティルト!','台を揺らしすぎて、振り子(プラムボブ)が輪に触れました。<b>ティルトリレー</b>が入って自己保持し、盤面のランプとコイルの電気を切ります。フリッパーもバンパーも効きません。玉が落ちるとボールリターンリレーで解除され、次の玉になります。');
+  if(n==='Q'&&on&&P.BC>0)say('go','ゲームオーバー','最後の玉が落ちたとき、ボールカウントが<b>球数プラグ('+BALLS+'球)</b>の位置にあったので、ゲームオーバーリレーが入りました。このリレーは<b>入ると終わり</b>の逆の論理で、盤面のコイルの電気を切ります。');
+}
+function explain(){
+  if(r('S'))return say('s','スタート','クレジットがあるので<b>スタートリレー</b>が入りました。クレジットを1つ使い、<b>Q（ゲームオーバーリレー）</b>を解除します。Vで得点リールと球数をリセットしてから玉を出します。');
+  if(r('V'))return say('v','リセット中','<b>リセットリレー</b>が得点モーターを回します。モーターの<b>カムA</b>が接点をたたくたびに、0でないリールが1つずつ進み、0の位置まで回ります(リールは逆には回れないので前に進めて0にする)。<b>全部のリールとボールカウントが0になるまで</b>リセットリレーは切れません。');
+  if(r('R')&&P.ball.st==='out')return say('r','玉を出す','アウトホールに玉があるので<b>ボールリターンリレー</b>が入り、得点モーターを回します。モーターの<b>カムB</b>のところでキッカーのコイルが打ち、玉をシューターレーンへ送ります。');
+  if(r('K5'))return say('k5','500点','<b>500点リレー</b>が入り、得点モーターを回しました。モーターが1/3回転する間に<b>カムAが5回</b>接点をたたき、そのたびに<b>100点リレー</b>が入るので、100の位のリールが5回進みます。500点リレーは自分の接点と<b>ランアウトスイッチ(1C)</b>で保持され、モーターが定位置に戻るまで切れません。');
+  if(P.ball.st==='kick')return;
+  if(P.ball.st==='play'&&P.sw.shoot&&P.BC>0)return say('sh'+P.BC,P.BC+'球目','玉がシューターレーンに入り、レーンのスイッチで<b>ボールカウントユニット</b>が1段進みました。スペースキーで打ち出してください。');
+  if(r('Q')&&P.BC===0&&P.credit===0)return say('ins','電源ON・ゲームオーバー状態','<b>ゲームオーバーリレー</b>が入っているので、盤面のコイルに電気が来ていません。「クレジット追加」でクレジットを入れ、「スタート」を押してください。');
+  if(r('Q')&&P.credit>0&&nowKey!=='go'&&!nowKey.startsWith('ca'))return say('rdy','スタートできます','クレジットがあります。「スタート」を押すと、スタートリレー → リセットリレーの順に動きます。');
+}
+
+/* ---------- 玉の動き ---------- */
+function kick(){const b=P.ball;if(b.st!=='out')return;thump();b.st='kick';b.k=0;}
+function collideSeg(b,s,rad,vp){
+  const dx=s.x2-s.x1,dy=s.y2-s.y1,L2=dx*dx+dy*dy;let t=((b.x-s.x1)*dx+(b.y-s.y1)*dy)/L2;t=Math.max(0,Math.min(1,t));
+  const cx=s.x1+t*dx,cy=s.y1+t*dy;let nx=b.x-cx,ny=b.y-cy;const d=Math.hypot(nx,ny);if(d>=rad||d===0)return false;
+  nx/=d;ny/=d;b.x=cx+nx*rad;b.y=cy+ny*rad;
+  let ux=0,uy=0;if(vp){ux=vp(cx,cy)[0];uy=vp(cx,cy)[1];}
+  const rvx=b.vx-ux,rvy=b.vy-uy,vn=rvx*nx+rvy*ny;
+  if(vn<0){const e=s.e??.5;b.vx-= (1+e)*vn*nx;b.vy-=(1+e)*vn*ny;if(vn<-40){const tx_=-ny,ty_=nx,vt=rvx*tx_+rvy*ty_;b.vx-=vt*.04*tx_;b.vy-=vt*.04*ty_;}return -vn;}
+  return 0.0001;}
+function physics(dt){
+  const b=P.ball;
+  if(b.st==='out'){b.x=200;b.y=786;b.vx=b.vy=0;P.sw.out=1;P.sw.shoot=0;return;}
+  P.sw.out=0;
+  if(b.st==='kick'){b.k+=dt/.55;const t=Math.min(1,b.k);b.x=200+(381.5-200)*t;b.y=786-Math.sin(t*Math.PI)*30+(780-786)*t;if(t>=1){b.st='play';b.x=381.5;b.y=742;b.vx=0;b.vy=0;}return;}
+  b.vy+=720*dt;
+  b.x+=b.vx*dt;b.y+=b.vy*dt;
+  const sp=Math.hypot(b.vx,b.vy);if(sp>1250){b.vx*=1250/sp;b.vy*=1250/sp;}
+  for(const s of segs){if(s.oneway&&b.vy<=0)continue;const hit=collideSeg(b,s,BR+(s.rad||0));if(hit&&s.tgt&&hit>60&&PF()&&!P.sw[s.tgt]){P.sw[s.tgt]=.1;s.flash=.25;}}
+  // プランジャー
+  const tipY=750+P.pull*26;if(b.x>368&&b.y>tipY-BR){b.y=tipY-BR;if(b.vy>0)b.vy=-b.vy*.15;if(Math.abs(b.vy)<20)b.vy=0;}
+  for(const p of posts){const dx=b.x-p.x,dy=b.y-p.y,d=Math.hypot(dx,dy)||.001,m=p.r+BR;if(d<m){const nx=dx/d,ny=dy/d;b.x=p.x+nx*m;b.y=p.y+ny*m;const vn=b.vx*nx+b.vy*ny;if(vn<0){b.vx-=1.75*vn*nx;b.vy-=1.75*vn*ny;}}}
+  bumpers.forEach((u,i)=>{const dx=b.x-u.x,dy=b.y-u.y,d=Math.hypot(dx,dy)||.001,m=BRAD+BR;if(d<m){const nx=dx/d,ny=dy/d;b.x=u.x+nx*m;b.y=u.y+ny*m;const vn=b.vx*nx+b.vy*ny;if(vn<0){b.vx-=1.6*vn*nx;b.vy-=1.6*vn*ny;}}
+    P.sw.skirt[i]=(d<m+2.5&&PF())?1:0;});
+  // フリッパー
+  FLIP.forEach((f,i)=>{const F=P.flip[i];const ang=f.dir>0?F.a:Math.PI-F.a;const ex=f.px+Math.cos(ang)*FLEN,ey=f.py+Math.sin(ang)*FLEN;
+    const vp=(cx,cy)=>{const rx=cx-f.px,ry=cy-f.py;const om=(f.dir>0?F.w:-F.w);return [-om*ry,om*rx];};
+    collideSeg(b,{x1:f.px,y1:f.py,x2:ex,y2:ey,e:.35},BR+6,vp);});
+  // ロールオーバー
+  lanes.forEach((x,i)=>{if(Math.abs(b.x-x)<12&&Math.abs(b.y-92)<10&&P.sw.lane[i]===0&&PF()){P.sw.lane[i]=.06;}});
+  P.sw.shoot=(b.x>368&&b.y>720)?1:0;
+  if(b.y>775&&b.x<368){b.st='out';log('玉','アウトホールに落ちた(アウトホールスイッチが閉じる)','off');}
+  if(b.y>820||b.x<0||b.x>W){b.st='out';}
+}
+
+/* ---------- 盤面の描画 ---------- */
+const pf=$('pf'),pc=pf.getContext('2d'),bb=$('bb'),bc=bb.getContext('2d');
+for(const ctx of [pc,bc]){const fill=ctx.fillText.bind(ctx);ctx.fillText=(text,...args)=>fill(window.lessonLanguage?.text(text)??text,...args);}
+const DPR=2;pf.width=W*DPR;pf.height=H*DPR;bb.width=W*DPR;bb.height=190*DPR;
+function drawPF(){const g=pc;g.setTransform(DPR,0,0,DPR,0,0);const lit=PF();
+  const grd=g.createLinearGradient(0,0,0,H);grd.addColorStop(0,'#173a5c');grd.addColorStop(1,'#0e2238');g.fillStyle='#0b0f12';g.fillRect(0,0,W,H);
+  g.save();g.beginPath();g.moveTo(20,600);g.lineTo(20,200);g.arc(ARC.cx,ARC.cy,ARC.r,Math.PI,0);g.lineTo(395,790);g.lineTo(20,790);g.closePath();g.fillStyle=grd;g.fill();g.clip();
+  // 絵(オリジナル):歯車と稲妻の模様
+  g.globalAlpha=.13;g.strokeStyle='#ffd27a';g.lineWidth=3;
+  [[90,560,46],[300,610,38],[200,620,60]].forEach(([x,y,R])=>{g.beginPath();for(let k=0;k<24;k++){const a=k/24*Math.PI*2,rr=k%2?R:R*.82;g.lineTo(x+Math.cos(a)*rr,y+Math.sin(a)*rr);}g.closePath();g.stroke();g.beginPath();g.arc(x,y,R*.3,0,7);g.stroke();});
+  g.globalAlpha=lit?.9:.35;g.fillStyle='#ffcf7a';g.font='500 22px "Zen Kaku Gothic New",sans-serif';g.textAlign='center';g.fillText('リレー式',200,560);g.font='500 12px "Zen Kaku Gothic New",sans-serif';g.fillText('カチッと鳴ったら点が入る',200,580);
+  g.globalAlpha=1;
+  // シューターレーン
+  g.fillStyle='#0c1a29';g.fillRect(368,236,27,560);
+  g.restore();
+  // 壁
+  // インレーンのプラスチック板(ガイドの下側を塗る)
+  [[[20,600],[128,694],[96,800],[20,800]],[[368,600],[272,694],[304,800],[368,800]]].forEach((pl,k)=>{
+    const lg=g.createLinearGradient(pl[0][0],pl[0][1],pl[1][0],pl[1][1]+60);lg.addColorStop(0,'#5a2a6e');lg.addColorStop(1,'#2a1640');
+    g.beginPath();pl.forEach(([x,y],j)=>j?g.lineTo(x,y):g.moveTo(x,y));g.closePath();g.fillStyle=lg;g.fill();
+    // 板の模様(矢印ランプ)
+    for(let j=0;j<3;j++){const t=.28+j*.2,x=pl[0][0]+(pl[1][0]-pl[0][0])*t,y=pl[0][1]+(pl[1][1]-pl[0][1])*t+22;g.fillStyle=lit?'rgba(255,207,122,'+(.35+.2*j)+')':'rgba(120,100,80,.3)';
+      g.beginPath();const d=k?-1:1;g.moveTo(x+d*8,y+8*.85);g.lineTo(x-d*6,y-4);g.lineTo(x-d*6,y+12);g.closePath();g.fill();}
+  });
+  // 壁:金属のレール(影+本体+ハイライト)
+  g.lineCap='round';g.lineJoin='round';
+  for(const s of segs){if(s.tgt)continue;const w=s.oneway?2.5:s.rad?6:4;
+    g.beginPath();g.moveTo(s.x1,s.y1+2);g.lineTo(s.x2,s.y2+2);g.strokeStyle='rgba(0,0,0,.45)';g.lineWidth=w+2;g.stroke();
+    g.beginPath();g.moveTo(s.x1,s.y1);g.lineTo(s.x2,s.y2);g.strokeStyle=s.oneway?'#8d989f':'#aab4ba';g.lineWidth=w;g.stroke();
+    g.strokeStyle='rgba(255,255,255,.75)';g.lineWidth=Math.max(1,w*.3);g.stroke();}
+  // ロールオーバー
+  lanes.forEach((x,i)=>{g.fillStyle=P.sw.lane[i]>0?'#fff3b0':(lit?'#ffb347':'#6a5130');g.beginPath();g.arc(x,92,6,0,7);g.fill();
+    g.fillStyle=lit?'#ffe6b8':'#8a7a60';g.font='500 11px "JetBrains Mono",monospace';g.textAlign='center';g.fillText('100',x,124);});
+  // ターゲット
+  for(const s of segs){if(!s.tgt)continue;if(s.flash>0)s.flash-=1/60;g.strokeStyle=s.flash>0?'#fff':(s.tgt==='t500'?'#ff5a3c':'#ffd23c');g.lineWidth=7;g.beginPath();g.moveTo(s.x1,s.y1);g.lineTo(s.x2,s.y2);g.stroke();
+    g.fillStyle=lit?'#ffe6b8':'#8a7a60';g.font='500 11px "JetBrains Mono",monospace';g.textAlign='center';
+    if(s.show==='C')g.fillText('500',200,490);else if(s.show==='L')g.fillText('10',38,424);else g.fillText('10',352,424);}
+  // ゴム柱
+  posts.forEach(p=>{g.fillStyle='rgba(0,0,0,.4)';g.beginPath();g.arc(p.x+1.5,p.y+3,p.r,0,7);g.fill();g.fillStyle='#1b1b1b';g.beginPath();g.arc(p.x,p.y,p.r,0,7);g.fill();g.fillStyle='#e8b04a';g.beginPath();g.arc(p.x,p.y,p.r*.45,0,7);g.fill();g.strokeStyle='rgba(255,255,255,.35)';g.lineWidth=1.5;g.beginPath();g.arc(p.x,p.y,p.r-1.5,3.6,5.2);g.stroke();});
+  // バンパー
+  bumpers.forEach((u,i)=>{const d=P.bump[i];g.fillStyle='#d8dde0';g.beginPath();g.arc(u.x,u.y,BRAD,0,7);g.fill();
+    g.fillStyle=d>0?'#fff4c0':(lit?'#e94b3c':'#6b2a24');g.beginPath();g.arc(u.x,u.y,BRAD-4-d*3,0,7);g.fill();
+    g.fillStyle=lit?'#fff':'#bbb';g.font='500 13px "JetBrains Mono",monospace';g.textAlign='center';g.fillText('10',u.x,u.y+5);});
+  // フリッパー
+  FLIP.forEach((f,i)=>{const F=P.flip[i];const ang=f.dir>0?F.a:Math.PI-F.a;const ex=f.px+Math.cos(ang)*FLEN,ey=f.py+Math.sin(ang)*FLEN;
+    const R1=9,R2=5,n=ang+Math.PI/2;
+    const shape=(dx,dy)=>{g.beginPath();g.arc(f.px+dx,f.py+dy,R1,n,n+Math.PI);g.arc(ex+dx,ey+dy,R2,n+Math.PI,n+2*Math.PI);g.closePath();};
+    shape(2,4);g.fillStyle='rgba(0,0,0,.45)';g.fill();
+    shape(0,0);const fg=g.createLinearGradient(f.px,f.py-R1,f.px,f.py+R1);fg.addColorStop(0,'#ffffff');fg.addColorStop(1,'#cfd3d6');g.fillStyle=fg;g.fill();
+    g.strokeStyle=F.on?'#ff6a3a':'#d23a2a';g.lineWidth=3;g.stroke();
+    g.fillStyle='#e8b04a';g.beginPath();g.arc(f.px,f.py,3.2,0,7);g.fill();g.fillStyle='#7a5a20';g.beginPath();g.arc(f.px,f.py,1.3,0,7);g.fill();});
+  // プランジャー
+  g.fillStyle='#bbb';g.fillRect(374,750+P.pull*26,15,30);g.fillStyle='#e94b3c';g.fillRect(372,778+P.pull*26,19,8);
+  // アウトホール
+  g.fillStyle='#05080a';g.beginPath();g.ellipse(200,788,26,9,0,0,7);g.fill();g.fillStyle='#888';g.font='10px "Zen Kaku Gothic New",sans-serif';g.textAlign='center';g.fillText('アウトホール',200,775);
+  // 玉
+  const b=P.ball;const rg=g.createRadialGradient(b.x-3,b.y-3,1,b.x,b.y,BR);rg.addColorStop(0,'#fff');rg.addColorStop(.5,'#c7ccd0');rg.addColorStop(1,'#5d666d');g.fillStyle=rg;g.beginPath();g.arc(b.x,b.y,BR,0,7);g.fill();
+  if(!lit){g.fillStyle='rgba(0,0,0,.28)';g.fillRect(0,0,W,H);}
+  if(r('TL')){g.fillStyle='#ff4b3a';g.font='500 40px "Zen Kaku Gothic New",sans-serif';g.textAlign='center';g.fillText('TILT',200,420);}
+}
+function drawBB(){const g=bc;g.setTransform(DPR,0,0,DPR,0,0);g.fillStyle='#120d18';g.fillRect(0,0,W,190);
+  const gr=g.createLinearGradient(0,0,W,190);gr.addColorStop(0,'#3a1d4a');gr.addColorStop(1,'#1d2b4a');g.fillStyle=gr;g.fillRect(6,6,W-12,178);
+  g.fillStyle='#ffcf7a';g.font='500 15px "Zen Kaku Gothic New",sans-serif';g.textAlign='left';g.fillText('得点',22,30);
+  // リール
+  for(let i=0;i<4;i++){const x=110+i*46,y=14;g.fillStyle='#0b0b0b';g.fillRect(x,y,40,54);
+    if(i===3){g.fillStyle='#f4efe2';g.fillRect(x+3,y+3,34,48);g.fillStyle='#111';g.font='500 34px "JetBrains Mono",monospace';g.textAlign='center';g.fillText('0',x+20,y+40);continue;}
+    const k=2-i;let s=P.show[k];g.save();g.beginPath();g.rect(x+3,y+3,34,48);g.clip();g.fillStyle='#f4efe2';g.fillRect(x+3,y+3,34,48);
+    const fl=Math.floor(s),fr=s-fl;g.fillStyle='#111';g.font='500 34px "JetBrains Mono",monospace';g.textAlign='center';
+    g.fillText(String(fl%10),x+20,y+40-fr*48);g.fillText(String((fl+1)%10),x+20,y+40+48-fr*48);
+    const sh=g.createLinearGradient(0,y,0,y+54);sh.addColorStop(0,'rgba(0,0,0,.45)');sh.addColorStop(.3,'rgba(0,0,0,0)');sh.addColorStop(.7,'rgba(0,0,0,0)');sh.addColorStop(1,'rgba(0,0,0,.45)');g.fillStyle=sh;g.fillRect(x,y,40,54);g.restore();}
+  g.fillStyle='#d9c8ff';g.font='10px "Zen Kaku Gothic New",sans-serif';g.textAlign='center';['1000','100','10','固定'].forEach((t,i)=>g.fillText(t,130+i*46,80));
+  // ボール数
+  g.textAlign='left';g.fillStyle='#ffcf7a';g.font='500 12px "Zen Kaku Gothic New",sans-serif';g.fillText('玉',22,108);
+  for(let i=1;i<=5;i++){const on=P.BC===i&&!r('Q');g.fillStyle=on?'#ffe08a':'#3a2f4a';g.beginPath();g.arc(30+i*24,104,9,0,7);g.fill();g.fillStyle=on?'#111':(i>BALLS?'#4a405a':'#9a8fb0');g.font='500 11px "JetBrains Mono",monospace';g.textAlign='center';g.fillText(i,30+i*24,108);}
+  // クレジット
+  g.fillStyle='#ffcf7a';g.font='500 12px "Zen Kaku Gothic New",sans-serif';g.textAlign='left';g.fillText('クレジット',22,140);g.fillStyle='#0b0b0b';g.fillRect(96,124,36,24);g.fillStyle='#f4efe2';g.font='500 18px "JetBrains Mono",monospace';g.textAlign='center';g.fillText(P.credit,114,142);
+  // ランプ
+  const lamp=(x,y,w,t,on,c)=>{g.fillStyle=on?c:'#2a2236';g.fillRect(x,y,w,24);g.fillStyle=on?'#111':'#5a4e6a';g.font='500 12px "Zen Kaku Gothic New",sans-serif';g.textAlign='center';g.fillText(t,x+w/2,y+17);};
+  lamp(160,96,100,'GAME OVER',r('Q'),'#ff6b4a');lamp(268,96,60,'TILT',r('TL'),'#ff4b3a');lamp(336,96,52,'SHOOT',P.sw.shoot&&!r('Q'),'#9be37a');
+  g.fillStyle='#9a8fb0';g.font='10px "Zen Kaku Gothic New",sans-serif';g.textAlign='left';g.fillText('リプレイ点 '+P.rep.toLocaleString()+' 点 / '+BALLS+'球',22,172);
+}
+
+/* ---------- ラダー図(データから自動で描く) ---------- */
+const LG=[];const diagramGroups=[];let diagramHeight=0;
+const c=(t,f,b)=>({t,f,b:b?1:0});
+const box=(t,f)=>({box:t,f});
+const par=(...br)=>({par:br});
+const eosOpen=i=>()=>!P.flip[i].eos;
+const PFc=()=>[c('Q',()=>!r('Q'),1),c('TL',()=>!r('TL'),1)];
+const RUNGS=[
+ {h:'ゲームの開始と終わり'},
+ {i:[c('スタート',()=>P.sw.start>0),c('クレジット',()=>P.credit>0),c('V',()=>!r('V'),1),c('Q',()=>r('Q'))],o:'S',f:()=>r('S'),cm:'スタートリレー'},
+ {i:[c('S',()=>r('S'))],o:'CR−',f:()=>SO.CRm,cm:'クレジット減算コイル',st:1},
+ {i:[par([c('S',()=>r('S'))],[c('V',()=>r('V')),c('0でない',notZero)])],o:'V',f:()=>r('V'),cm:'リセットリレー'},
+ {i:[c('V',()=>r('V')),c('カムB',camB)],o:'BC0',f:()=>SO.BC0,cm:'ボールカウントを0へ',st:1},
+ {i:[par([c('R',()=>r('R')),c('BC=最終',()=>P.BC===BALLS),c('カムB',camB)],[c('Q',()=>r('Q')),c('S',()=>!r('S'),1)])],o:'Q',f:()=>r('Q'),cm:'ゲームオーバー(入る=終わり)'},
+ {h:'得点モーター'},
+ {i:[par([c('V',()=>r('V'))],[c('R',()=>r('R'))],[c('K5',()=>r('K5'))],[c('1C',runout)])],o:'M',f:()=>SO.M,cm:'得点モーター(1C=ランアウト)',mot:1},
+ {h:'玉を出す・数える'},
+ {i:[c('アウトホール',()=>P.sw.out),c('Q',()=>!r('Q'),1),c('V',()=>!r('V'),1)],o:'R',f:()=>r('R'),cm:'ボールリターンリレー'},
+ {i:[c('R',()=>r('R')),c('カムB',camB),c('BC≠最終',()=>P.BC!==BALLS)],o:'KO',f:()=>SO.KO,cm:'アウトホールキッカー',st:1},
+ {i:[c('シューター',()=>P.sw.shoot),c('Q',()=>!r('Q'),1)],o:'BC+',f:()=>SO.BCup,cm:'ボールカウント1段進む',st:1},
+ {i:[par([c('振り子',()=>P.sw.tilt)],[c('TL',()=>r('TL'))]),c('R',()=>!r('R'),1)],o:'TL',f:()=>r('TL'),cm:'ティルトリレー'},
+ {h:'フリッパー(強巻線と保持巻線)'},
+ {i:[...PFc(),c('左ボタン',()=>P.sw.fl),par([box('保持巻線',()=>SO.FL&&!P.flip[0].eos)],[c('EOS',()=>P.flip[0].eos,1)])],o:'強',f:()=>SO.FL,cm:'左フリッパー',st:1},
+ {i:[...PFc(),c('右ボタン',()=>P.sw.fr),par([box('保持巻線',()=>SO.FR&&!P.flip[1].eos)],[c('EOS',()=>P.flip[1].eos,1)])],o:'強',f:()=>SO.FR,cm:'右フリッパー',st:1},
+ {h:'バンパーと得点'},
+ ...[0,1,2].map(i=>({i:[...PFc(),par([c('スカート'+(i+1),()=>P.sw.skirt[i])],[c('B'+(i+1),()=>r('B'+i)),c('EOS',()=>!bEOS(i),1)])],o:'B'+(i+1),f:()=>r('B'+i),cm:'バンパーリレー'+(i+1)+'(接点でコイルを打つ)'})),
+ {i:[...PFc(),par([c('的10点',()=>P.sw.t10>0)],[c('B1',()=>r('B0'))],[c('B2',()=>r('B1'))],[c('B3',()=>r('B2'))])],o:'R10',f:()=>r('R10'),cm:'10点リレー'},
+ {i:[...PFc(),par([c('レーン',()=>P.sw.lane.some(v=>v))],[c('K5',()=>r('K5')),c('カムA',camA)])],o:'R100',f:()=>r('R100'),cm:'100点リレー'},
+ {i:[...PFc(),par([c('的500点',()=>P.sw.t500>0)],[c('K5',()=>r('K5')),c('1C',runout)])],o:'K5',f:()=>r('K5'),cm:'500点リレー'},
+ {h:'得点リール(9の位置で次の桁へ送る)'},
+ {i:[par([c('R10',()=>r('R10'))],[c('V',()=>r('V')),c('カムA',camA),c('0でない',()=>P.reel[0]>0)])],o:'10',f:()=>SO.C10,cm:'10の位リール',st:1},
+ {i:[par([c('R100',()=>r('R100'))],[c('R10',()=>r('R10')),c('10が9',()=>P.reel[0]===9),c('V',()=>!r('V'),1)],[c('V',()=>r('V')),c('カムA',camA),c('0でない',()=>P.reel[1]>0)])],o:'100',f:()=>SO.C100,cm:'100の位リール',st:1},
+ {i:[par([c('100リール',()=>SO.C100),c('100が9',()=>P.reel[1]===9),c('V',()=>!r('V'),1)],[c('V',()=>r('V')),c('カムA',camA),c('0でない',()=>P.reel[2]>0)])],o:'1000',f:()=>SO.C1000,cm:'1000の位リール',st:1},
+ {h:'クレジット・リプレイ'},
+ {i:[par([c('クレジット',()=>P.sw.coin>0)],[c('リプレイ',()=>P.repP>0)]),c('満杯',()=>P.credit<15,1)],o:'CA',f:()=>r('CA'),cm:'クレジット加算(+ノッカー)'},
+];
+function buildLad(){const g=$('lad');g.innerHTML='';LG.length=0;const XL=22,XR=618,XC=574,SP=62,BH=24;
+  const W_=(p,pts)=>el('path',{d:'M'+pts.map(q=>q.join(' ')).join(' L'),class:'wire'},p);
+  const drawC=(p,x,y,it)=>{const cg=el('g',{},p);
+    if(it.box){el('rect',{x:x+2,y:y-7,width:40,height:14,class:'coil',rx:2},cg);tx(cg,x+22,y-11,it.box,{'text-anchor':'middle'});LG.push({el:cg.firstChild,coil:true,fn:it.f});W_(p,[[x-8,y],[x+2,y]]);W_(p,[[x+42,y],[x+SP-8,y]]);return x+SP;}
+    W_(p,[[x-8,y],[x+10,y]]);el('circle',{cx:x+10,cy:y,r:2,fill:'#2c2c2c'},cg);el('circle',{cx:x+36,cy:y,r:2,fill:'#2c2c2c'},cg);
+    if(it.b)el('line',{x1:x+36,y1:y-9,x2:x+36,y2:y,stroke:'#2c2c2c','stroke-width':1.8},cg);
+    const bl=el('line',{x1:x+10,y1:y,x2:x+37,y2:y,class:'ct'},cg);tx(cg,x+23,y-11,it.t,{'text-anchor':'middle'});W_(p,[[x+36,y],[x+SP-8,y]]);
+    LG.push({el:cg,bl,x:x+10,y,b:it.b,fn:it.f});return x+SP;};
+  const lay=(p,items,x,y)=>{let rows=1;for(const it of items){if(it.par){const x0=x;let mx=x0,ends=[];it.par.forEach((br,k)=>{const yy=y+k*BH;if(k)W_(p,[[x0-8,y],[x0-8,yy]]);let xx=x0;const rr=lay(p,br,xx,yy);ends.push([rr.x,yy]);mx=Math.max(mx,rr.x);rows=Math.max(rows,k+rr.rows);});
+        ends.forEach(([ex,yy])=>{if(ex<mx)W_(p,[[ex-8,yy],[mx-8,yy]]);if(yy!==y)W_(p,[[mx-8,yy],[mx-8,y]]);});x=mx;}
+      else x=drawC(p,x,y,it);}return {x,rows};};
+  let y=30;
+  for(const R of RUNGS){
+    if(R.h){if(diagramGroups.length)diagramGroups.at(-1).end=y;diagramGroups.push({title:R.h,start:y,nodes:[]});y+=8;diagramGroups.at(-1).nodes.push(tx(g,XL+6,y,'■ '+R.h,{class:'rl',fill:'#7a4a10'}));y+=26;continue;}
+    const rg=el('g',{class:'rung'},g);diagramGroups.at(-1).nodes.push(rg);LG.push({el:rg,fn:R.f,rung:true});
+    W_(rg,[[XL,y],[XL+12,y]]);const res=lay(rg,R.i,XL+20,y);W_(rg,[[res.x-8,y],[XC-13,y]]);W_(rg,[[XC+13,y],[XR,y]]);
+    if(R.mot){el('circle',{cx:XC,cy:y,r:13,class:'coil'},rg);}else if(R.st){el('rect',{x:XC-14,y:y-11,width:28,height:22,rx:3,class:'coil'},rg);}else el('circle',{cx:XC,cy:y,r:13,class:'coil'},rg);
+    LG.push({el:rg.lastChild,coil:true,fn:R.f});tx(rg,XC,y+4,R.o,{class:'rl','text-anchor':'middle','font-size':R.o.length>3?8:R.o.length>2?9:11});
+    tx(rg,XC-18,y-16,R.cm,{class:'cm','text-anchor':'end'});
+    y+=Math.max(1,res.rows)*BH+26;}
+  el('line',{x1:XL,y1:16,x2:XL,y2:y-10,class:'wire'},g,);g.insertBefore(g.lastChild,g.firstChild);el('line',{x1:XR,y1:16,x2:XR,y2:y-10,class:'wire'},g);g.insertBefore(g.lastChild,g.firstChild);
+  tx(g,XL,12,'+',{class:'rl','text-anchor':'middle'});tx(g,XR,12,'−',{class:'rl','text-anchor':'middle'});
+  diagramGroups.at(-1).end=y;diagramHeight=y;g.setAttribute('viewBox',`0 0 640 ${y}`);
+}
+function renderLad(){for(const o of LG){const on=!!o.fn();
+  if(o.rung)o.el.classList.toggle('live',on);
+  else if(o.coil)o.el.classList.toggle('on',on);
+  else{o.el.classList.toggle('on',on);if(o.b){o.bl.setAttribute('x2',on?o.x+27:o.x+24);o.bl.setAttribute('y2',on?o.y:o.y-9);}else{o.bl.setAttribute('x2',on?o.x+27:o.x+23);o.bl.setAttribute('y2',on?o.y:o.y-8);}}}}
+
+/* ---------- 裏の機構 ---------- */
+const MG={};
+function buildMech(){const g=$('mech');g.innerHTML='';
+  el('rect',{x:0,y:0,width:640,height:640,fill:'#232a2f'},g);
+  const lab=(x,y,t,a={})=>tx(g,x,y,t,Object.assign({fill:'#e8e2d4','font-size':12,'font-weight':500},a));
+  const sub=(x,y,t,a={})=>tx(g,x,y,t,Object.assign({fill:'#9aa5aa','font-size':10},a));
+  lab(16,22,'リレー(盤の下・裏箱)');
+  MG.rel={};RN.forEach((n,k)=>{const x=16+(k%7)*88,y=34+Math.floor(k/7)*84,gg=el('g',{},g);
+    el('rect',{x,y,width:80,height:72,rx:6,fill:'#30383d',stroke:'#46525a'},gg);
+    el('rect',{x:x+10,y:y+26,width:22,height:34,rx:3,fill:'#b8763a'},gg);
+    const arm=el('line',{x1:x+8,y1:y+20,x2:x+60,y2:y+12,stroke:'#cfd5d8','stroke-width':4,'stroke-linecap':'round'},gg);
+    const ct=el('circle',{cx:x+64,cy:y+44,r:5,fill:'#555'},gg);
+    tx(gg,x+44,y+40,n.replace(/^B(\d)$/,(m,d)=>'B'+(+d+1)),{fill:'#fff','font-size':12,'font-weight':500,'font-family':'JetBrains Mono,monospace'});
+    tx(gg,x+40,y+68,NAMES[n][0].replace('リレー',''),{fill:'#9aa5aa','font-size':9,'text-anchor':'middle'});
+    MG.rel[n]={arm,ct,x,y};});
+  // 得点モーター
+  lab(16,224,'得点モーター');sub(16,238,'1/3回転(120°)ごとに定位置で止まる');
+  const mx=110,my=330;el('circle',{cx:mx,cy:my,r:72,fill:'#2b3338',stroke:'#46525a'},g);
+  MG.mot=el('g',{},g);el('circle',{cx:0,cy:0,r:62,fill:'#3a444a',stroke:'#59656c'},MG.mot);
+  for(let k=0;k<3;k++){for(let j=0;j<5;j++){const a=(k*120+10+j*21+5)*Math.PI/180;el('rect',{x:-3,y:-62,width:6,height:9,fill:'#ffb347',transform:`rotate(${a*180/Math.PI})`},MG.mot);}
+    const ab=(k*120+66)*Math.PI/180;el('rect',{x:-4,y:-50,width:8,height:10,fill:'#7ec8ff',transform:`rotate(${ab*180/Math.PI})`},MG.mot);
+    el('circle',{cx:0,cy:0,r:4,fill:'#ddd',transform:`rotate(${k*120}) translate(0,-24)`},MG.mot);}
+  el('circle',{cx:0,cy:0,r:10,fill:'#888'},MG.mot);
+  el('path',{d:`M${mx} ${my-74} l-6 -10 h12z`,fill:'#fff'},g);
+  MG.cams=[['カムA(5回)','#ffb347',camA],['カムB','#7ec8ff',camB],['1C ランアウト','#9be37a',runout]].map(([t,col,fn],k)=>{const y=268+k*26;const l=el('circle',{cx:206,cy:y,r:7,fill:'#444'},g);tx(g,220,y+4,t,{fill:col,'font-size':11,'font-weight':500});return {l,fn,col};});
+  MG.ang=sub(206,382,'');
+  // ボールカウント
+  lab(340,224,'ボールカウントユニット');sub(340,238,'シューターレーンのスイッチで1段進む');
+  MG.bc=[];for(let i=0;i<=5;i++){const a=(-150+i*24)*Math.PI/180,x=430+Math.cos(a)*70,y=330+Math.sin(a)*70;MG.bc.push(el('circle',{cx:x,cy:y,r:8,fill:'#555'},g));tx(g,x,y+4,String(i),{'text-anchor':'middle','font-size':9,fill:'#fff','font-weight':500});}
+  MG.bcw=el('line',{x1:430,y1:330,x2:430,y2:270,stroke:'#ffcf7a','stroke-width':4,'stroke-linecap':'round'},g);el('circle',{cx:430,cy:330,r:6,fill:'#ccc'},g);
+  MG.plug=sub(380,370,'');
+  // クレジット
+  lab(16,420,'クレジットユニット');MG.cr=tx(g,60,470,'0',{fill:'#f4efe2','font-size':30,'font-weight':500,'font-family':'JetBrains Mono,monospace','text-anchor':'middle'});
+  el('rect',{x:30,y:440,width:60,height:40,rx:4,fill:'none',stroke:'#59656c'},g);sub(100,456,'加算コイル:クレジット・リプレイ');sub(100,470,'減算コイル:スタート');
+  // 振り子
+  lab(250,510,'ティルトの振り子');sub(250,524,'揺らしすぎると輪に触れる');
+  el('circle',{cx:310,cy:600,r:22,fill:'none',stroke:'#aaa','stroke-width':3},g);MG.pend=el('g',{},g);el('line',{x1:0,y1:0,x2:0,y2:62,stroke:'#ccc','stroke-width':2},MG.pend);el('circle',{cx:0,cy:66,r:8,fill:'#b8763a'},MG.pend);el('circle',{cx:310,cy:538,r:3,fill:'#ddd'},g);
+  // フリッパー電流
+  lab(420,420,'フリッパーの電流');sub(420,436,'強巻線 約2Ω、保持巻線 約10〜20Ω(直列)');
+  MG.fc=[0,1].map(i=>{const y=456+i*56;tx(g,420,y+12,i?'右':'左',{fill:'#e8e2d4','font-size':11,'font-weight':500});el('rect',{x:440,y,width:180,height:16,fill:'#30383d'},g);const bar=el('rect',{x:440,y,width:0,height:16,fill:'#ff8a1f'},g);const t=sub(440,y+30,'');return {bar,t};});
+}
+function renderMech(){if($('mech').style.display==='none')return;
+  RN.forEach(n=>{const m=MG.rel[n],on=r(n);m.arm.setAttribute('y2',on?m.y+24:m.y+12);m.arm.setAttribute('y1',on?m.y+22:m.y+20);m.ct.setAttribute('fill',on?'#ffb347':'#555');});
+  MG.mot.setAttribute('transform',`translate(110,330) rotate(${-pos()})`);
+  MG.cams.forEach(o=>o.l.setAttribute('fill',o.fn()?o.col:'#444'));MG.ang.textContent='位置 '+pos().toFixed(0)+'°'+(SO.M?'(回転中)':'(停止)');
+  MG.bc.forEach((c_,i)=>c_.setAttribute('fill',i===P.BC?'#ffb347':(i===BALLS?'#7a3a3a':'#555')));
+  const a=(-150+P.BC*24)*Math.PI/180;MG.bcw.setAttribute('x2',430+Math.cos(a)*58);MG.bcw.setAttribute('y2',330+Math.sin(a)*58);
+  MG.plug.textContent='球数プラグ:'+BALLS+'の位置(赤)で最後の玉';
+  MG.cr.textContent=P.credit;
+  MG.pend.setAttribute('transform',`translate(310,538) rotate(${P.pend.amp*Math.sin(P.pend.ph)*16})`);
+  MG.fc.forEach((o,i)=>{const on=SO[i?'FR':'FL'],eos=P.flip[i].eos;const big=on&&eos,small=on&&!eos;o.bar.setAttribute('width',big?180:small?28:0);o.t.textContent=big?'強巻線だけ → 大電流(弾く)':small?'強+保持の直列 → 小電流(保持)':'電気なし';});
+}
+
+/* ---------- ループ ---------- */
+let last=performance.now();
+function frame(now){let dt=Math.min(.05,(now-last)/1000);last=now;if(P.pause)dt=0;if(P.slow)dt*=.25;
+  if(P.auto)autoPlay(dt);
+  if(P.pulling)P.pull=Math.min(1,P.pull+dt/.7);
+  const n=Math.ceil(dt/.002),h=dt/n;for(let i=0;i<n;i++){physics(h);logic(h);}
+  for(let i=0;i<3;i++){let d=P.reel[i]-P.show[i];if(d<0)d+=10;if(d>0){P.show[i]+=Math.min(d,dt*22);if(P.show[i]>=10)P.show[i]-=10;}if(Math.abs(P.show[i]-P.reel[i])<.01)P.show[i]=P.reel[i];}
+  if(P.pause)humSet(false);observe();drawPF();drawBB();renderLad();renderMech();
+  requestAnimationFrame(frame);}
+
+/* ---------- 操作 ---------- */
+function startPull(){if(!P.pause&&!P.auto&&PF()&&P.sw.shoot){ac();P.pulling=true;}}
+function releasePull(){const b=P.ball;if(P.pulling&&!P.pause&&PF()&&b.st==='play'&&b.x>368&&b.y>700)b.vy=-(720+480*P.pull);P.pulling=false;P.pull=0;}
+function releaseControls(){P.sw.fl=P.sw.fr=0;P.pulling=false;P.pull=0;}
+function heldButton(id,on,off){const b=$(id);b.onpointerdown=e=>{e.preventDefault();b.setPointerCapture(e.pointerId);on();};b.onpointerup=off;b.onpointercancel=()=>{if(id==='launch'){P.pulling=false;P.pull=0;}else off();};b.onlostpointercapture=()=>{if(id==='launch'){P.pulling=false;P.pull=0;}else off();};b.onkeydown=e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();if(!e.repeat)on();}};b.onkeyup=e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();off();}};}
+heldButton('flipperL',()=>{if(!P.pause&&!P.auto){ac();P.sw.fl=1;}},()=>P.sw.fl=0);
+heldButton('flipperR',()=>{if(!P.pause&&!P.auto){ac();P.sw.fr=1;}},()=>P.sw.fr=0);
+heldButton('launch',startPull,releasePull);
+addEventListener('blur',releaseControls);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)releaseControls();});
+$('pause').onclick=e=>{P.pause=!P.pause;releaseControls();e.currentTarget.textContent=P.pause?'再開':'一時停止';e.currentTarget.setAttribute('aria-pressed',P.pause);humSet(false);};
+$('reset').onclick=()=>{const {slow,rep}=P;Object.keys(P).forEach(k=>delete P[k]);Object.assign(P,JSON.parse(INITIAL),{slow,rep});SO={};Object.assign(AI,{t:0,lane:0,pullTo:0,fl:[0,0],cool:[0,0]});$('log').replaceChildren();nowKey='';$('auto').setAttribute('aria-pressed','false');$('pause').setAttribute('aria-pressed','false');$('pause').textContent='一時停止';humSet(false);explain();};
+let diagramScale=1;
+function zoom(delta){diagramScale=Math.max(.6,Math.min(2,Math.round((diagramScale+delta)*10)/10));for(const id of ['lad','mech']){$(id).style.minWidth=760*diagramScale+'px';$(id).style.width=100*diagramScale+'%';}$('diagramZoom').textContent=Math.round(diagramScale*100)+'%';}
+$('diagramZoomIn').onclick=()=>zoom(.1);$('diagramZoomOut').onclick=()=>zoom(-.1);
+$('diagramGrow').onclick=()=>{$('circuitDiagram').style.maxHeight='none';};
+$('diagramShrink').onclick=()=>{$('circuitDiagram').style.maxHeight='300px';};
+const GUIDE=[
+ 'クレジットがあるとスタートできます。SでQを解除して開始します。Vがリールを前へ送って0に戻します。Qは「入るとゲーム終了」のリレーです。',
+ '得点モーターはカムで接点を順に動かします。1Cは途中で止まらないための接点で、モーターを120°ごとの定位置まで回します。',
+ '玉が落ちるとRがモーターを回し、カムBで玉を戻します。シューターレーンに来ると球数が1つ進みます。揺らしすぎるとTLが入り、その玉の間はフリッパーが効きません。',
+ '押し始めは強巻線で強く動かし、上がりきるとEOSが開きます。保持巻線が直列に入り、少ない電流で上げたままにします。左右ボタンを押し続け、「裏の機構」の電流を見よう。',
+ 'バンパーに当たるとリレーが短い接触を覚え、コイルを動かします。500点は一度に足さず、カムAの5回のパルスで100点ずつ送ります。',
+ 'リールはコイルの動作で1目盛り進みます。9から0へ回ると次の桁を進めます。ゲーム開始時は0まで前へ回し、リセット中は桁上がりさせません。',
+ 'リプレイ点に達するとクレジットが1つ増え、もう1ゲーム遊べます。'
+];
+function selectCircuit(){const value=$('circuitGroup').value;const all=value==='all',index=+value;diagramGroups.forEach((g,i)=>g.nodes.forEach(n=>n.style.display=all||i===index?'':'none'));const g=diagramGroups[index];$('lad').setAttribute('viewBox',all?`0 0 640 ${diagramHeight}`:`0 ${g.start-12} 640 ${g.end-g.start+24}`);$('guide').textContent=all?'役割ごとの回路をつないだ全体図です。動きを追うときは役割を1つ選ぼう。':GUIDE[index];$('circuitDiagram').scrollTop=0;}
+const NOTES=[
+ ['start','開始','クレジットを使ってゲームが始まる','クレジット追加を押してからスタートし、最初の玉が出るまで見よう。'],
+ ['eos','フリッパー','EOSで強い動作から小さい保持電流へ切り替わる','ゲーム中に左右どちらかのフリッパーを押し続けよう。'],
+ ['score','得点','玉の接触がリレーを通って得点リールを進める','玉を打ち出し、バンパー・レーン・的で点を取ろう。自動プレイでも試せます。'],
+ ['tilt','ティルト','揺らしすぎるとフリッパーが効かなくなる','ゲーム中に台を揺らすボタンを続けて押し、TILT表示を見よう。'],
+ ['next','球数','玉が落ちると次の玉を出して球数が進む','最初の玉を打ち出し、落ちたあと次の玉が出るまで見よう。']
+];
+const got=new Set(),saveDiscovery=setupNotebook('pinball',NOTES,got,renderNotes);
+function renderNotes(){$('notes').innerHTML=NOTES.map(([id,,text,hint])=>`<li class="${got.has(id)?'got':''}"><span>${got.has(id)?'✓':'○'} ${text}</span><small>${hint}</small></li>`).join('');$('cnt').textContent=got.size+' / '+NOTES.length;}
+function found(id){if(!got.has(id)&&saveDiscovery(id)){got.add(id);renderNotes();}}
+function observe(){if(P.BC>=1&&!r('Q'))found('start');if(P.flip.some(f=>f.on&&!f.eos))found('eos');if(score()>0&&!r('V')&&!r('Q'))found('score');if(r('TL')&&!r('Q'))found('tilt');if(P.BC>=2&&!r('Q'))found('next');}
+renderNotes();
+$('coin').onclick=()=>{ac();P.sw.coin=.06;};
+$('start').onclick=()=>{ac();P.sw.start=.08;};
+$('nudge').onclick=()=>nudge();
+function nudge(){ac();thump();const b=P.ball;if(b.st==='play'&&!P.sw.shoot){b.vx+=(Math.random()<.5?-1:1)*70;b.vy-=110;}P.pend.amp=Math.min(1.6,P.pend.amp+.42);P.pend.ph=Math.PI/2;}
+/* ---------- 自動プレイ(コンピュータが打つ) ---------- */
+const AI={t:0,lane:0,pullTo:0,fl:[0,0],cool:[0,0]};
+function autoPlay(dt){const b=P.ball;AI.t+=dt;
+  // ゲームオーバーならクレジットを入れてスタート
+  if(r('Q')&&!r('S')&&!r('V')){if(AI.t>2.5){if(P.credit===0)P.sw.coin=.06;else P.sw.start=.08;AI.t=1.6;}}
+  else AI.t=0;
+  // シューターレーンの玉を打ち出す
+  if(b.st==='play'&&P.sw.shoot&&Math.abs(b.vy)<1){AI.lane+=dt;if(AI.lane>.8&&!P.pulling){P.pulling=true;AI.pullTo=.55+Math.random()*.45;}}
+  else AI.lane=0;
+  if(P.pulling&&P.pull>=AI.pullTo){P.pulling=false;if(b.st==='play'&&b.x>368&&b.y>700)b.vy=-(720+480*P.pull);P.pull=0;AI.lane=0;}
+  // 玉がフリッパーの上に来たら打つ
+  FLIP.forEach((f,i)=>{const k=i?'fr':'fl';AI.cool[i]=Math.max(0,AI.cool[i]-dt);
+    if(AI.fl[i]>0){AI.fl[i]-=dt;if(AI.fl[i]<=0)P.sw[k]=0;return;}
+    if(b.st!=='play'||AI.cool[i]>0)return;
+    const ang=f.dir>0?REST:Math.PI-REST;const ux=Math.cos(ang),uy=Math.sin(ang);const rx=b.x-f.px,ry=b.y-f.py;const t=rx*ux+ry*uy,d=Math.abs(rx*uy-ry*ux);
+    if(t>FLEN*.35&&t<FLEN+6&&d<26&&b.vy>-30){if(Math.random()<.22){AI.cool[i]=.7;return;}P.sw[k]=1;AI.fl[i]=.18;AI.cool[i]=.35;}});
+}
+$('auto').onclick=e=>{ac();P.auto=!P.auto;e.currentTarget.setAttribute('aria-pressed',P.auto);if(!P.auto){P.sw.fl=P.sw.fr=0;P.pulling=false;P.pull=0;}};
+$('slow').onclick=e=>{P.slow=!P.slow;e.currentTarget.setAttribute('aria-pressed',P.slow);};
+$('snd').onclick=e=>{sound=!sound;e.currentTarget.setAttribute('aria-pressed',sound);e.currentTarget.textContent=sound?'音 ON':'音 OFF';humSet(false);};
+document.querySelectorAll('#rep button').forEach(b=>b.onclick=()=>{P.rep=+b.dataset.r;document.querySelectorAll('#rep button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
+document.querySelectorAll('#view button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#view button').forEach(x=>x.setAttribute('aria-pressed',x===b));const m=b.dataset.v==='mech';$('lad').style.display=m?'none':'';$('mech').style.display=m?'':'none';$('circuitGroup').closest('label').hidden=m;$('guide').hidden=m;$('viewNote').textContent=m?'リレーの鉄片、得点モーターのカム、ステッパーの位置、振り子、フリッパーの電流':'展開接続図。電気が通っている所がオレンジに光ります';}));
+const KEY={z:'fl',Z:'fl',ArrowLeft:'fl','/':'fr',ArrowRight:'fr'};
+addEventListener('keydown',e=>{if(e.target.closest('input,select,textarea,button')||e.ctrlKey||e.metaKey||e.altKey)return;ac();
+  if(KEY[e.key]){P.sw[KEY[e.key]]=1;e.preventDefault();}
+  else if(e.key===' '){if(!e.repeat)startPull();e.preventDefault();}
+  else if(e.key==='Enter'){P.sw.start=.08;e.preventDefault();}
+  else if(e.key==='c'||e.key==='C')P.sw.coin=.06;
+  else if((e.key==='n'||e.key==='N')&&!e.repeat)nudge();
+  else if((e.key==='a'||e.key==='A')&&!e.repeat)$('auto').click();});
+addEventListener('keyup',e=>{if(KEY[e.key])P.sw[KEY[e.key]]=0;
+  if(e.key===' '&&P.pulling){e.preventDefault();releasePull();}});
+buildLad();buildMech();
+$('circuitGroup').innerHTML=diagramGroups.map((g,i)=>`<option value="${i}">${g.title}</option>`).join('')+'<option value="all">全回路（詳しく）</option>';
+$('circuitGroup').onchange=selectCircuit;selectCircuit();
+window.__P=P;
+requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>

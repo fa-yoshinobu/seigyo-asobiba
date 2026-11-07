@@ -65,7 +65,7 @@ const {chromium} = require('playwright');
     });
     assert.deepEqual(stops,[2,0]);
     await page.goto(pathToFileURL(path.resolve(__dirname,'../index.html')).href);
-    assert.equal(await page.locator('.cards>a').count(),3);
+    assert.equal(await page.locator('.cards>a').count(),4);
     assert.equal(await page.locator('a[href="apps/relay-elevator.html"]').count(),1);
     assert.deepEqual(errors,[]);
     console.log('PASS elevator: calls, slowdown, arrival, doors, direction order, pause, diagram modes, mobile layout, menu');
