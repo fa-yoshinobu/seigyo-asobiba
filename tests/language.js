@@ -18,6 +18,7 @@ const { chromium } = require('playwright');
     await page.goto(local('index.html'));
     await checkPicker();
     await choose('en');
+    assert.doesNotMatch(await page.locator('body').innerText(), /[ぁ-ゖァ-ヺ一-龯々]/u, 'English menu must not contain Japanese text');
     assert.match(await page.locator('h2').first().innerText(),/Click! Relay/);
     await page.locator('a.card').first().click();
     await page.waitForFunction(() => document.title === 'Click! Relay');
@@ -27,8 +28,17 @@ const { chromium } = require('playwright');
     assert.deepEqual(await page.locator('.wrap h1 svg text').allTextContents(),['Click!','Relay']);
     const leftovers = [];
     const inspect = async selector => {
-      const untranslated = await page.locator(selector).evaluateAll(els =>
-        els.map(el => el.textContent.trim()).filter(text => /[ぁ-ゖァ-ヺ一-龯々]/u.test(text)));
+      const untranslated = await page.evaluate(() => {
+        const jp=/[ぁ-ゖァ-ヺ一-龯々]/u;
+        const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+        const out=[];let node;
+        while(node=walker.nextNode())if(!node.parentElement.closest('script,style,[translate="no"]')&&jp.test(node.data))out.push(node.data.trim());
+        for(const el of document.querySelectorAll('[aria-label],[title],[alt],[placeholder]')) {
+          if(el.closest('[translate="no"]'))continue;
+          for(const attr of ['aria-label','title','alt','placeholder'])if(jp.test(el.getAttribute(attr)||''))out.push(attr+': '+el.getAttribute(attr));
+        }
+        return out;
+      });
       leftovers.push(...untranslated);
     };
     for (const tab of await page.locator('#tabs button').all()) {

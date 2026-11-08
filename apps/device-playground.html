@@ -2099,7 +2099,7 @@ const PROT={tag:'保護',name:'モーター保護の部屋',
   for(let r=1.11;r<=10;r*=1.02){const t=120*Math.log((r*r/1.21)/((r*r/1.21)-1));if(first){gx.moveTo(X(r),Y(t));first=false;}else gx.lineTo(X(r),Y(t));}gx.stroke();gx.lineWidth=1;
   gx.fillStyle='#5fb0ff';drawLabel(gx,'この教材では1.1倍以下は動作しない',X(1)+6,T+14);drawLabel(gx,'6倍(始動電流)なら数秒',X(6)-60,Y(3)-30);
   const r=s.hist.length?s.hist[s.hist.length-1]:0;
-  if(r>1.11){const t=120*Math.log((r*r/1.21)/((r*r/1.21)-1));gx.fillStyle='#ff8a1f';gx.beginPath();gx.arc(X(r),Y(t),9,0,7);gx.fill();gx.fillStyle='#fff';drawLabel(gx,`${r.toFixed(2)}倍 → 約${t<1000?t.toFixed(0):'1000以上'}秒で切れる`,Math.min(X(r)+12,R-240),Y(t)-12);}
+  if(r>1.11){const t=120*Math.log((r*r/1.21)/((r*r/1.21)-1));gx.fillStyle='#ff8a1f';gx.beginPath();gx.arc(X(r),Y(t),9,0,7);gx.fill();gx.fillStyle='#fff';drawLabel(gx,window.lessonLanguage?.current==='en'?`${r.toFixed(2)}× → trip in ~${t<1000?t.toFixed(0):'>1000'} s`:`${r.toFixed(2)}倍 → 約${t<1000?t.toFixed(0):'1000以上'}秒で切れる`,Math.min(X(r)+12,R-240),Y(t)-12);}
   else if(r>0){gx.fillStyle='#ff8a1f';drawLabel(gx,`いま ${r.toFixed(2)}倍(切れない範囲)`,X(1)+6,B-10);}
   gx.fillStyle='#ffd23a';gx.fillRect(R-150,B-24,140*clamp(s.h,0,1),10);gx.strokeStyle='#ffd23a';gx.strokeRect(R-150,B-24,140,10);drawLabel(gx,'たまった熱',R-150,B-30);},
 };

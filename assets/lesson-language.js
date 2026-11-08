@@ -6,7 +6,8 @@
   const urlLanguage = new URL(location.href).searchParams.get('lang');
   let saved;
   try { saved = localStorage.getItem(preference); } catch {}
-  let language = (urlLanguage || saved) === 'en' ? 'en' : 'ja';
+  const browserLanguage = /^en(?:-|$)/i.test(navigator.languages?.[0] || navigator.language || '') ? 'en' : 'ja';
+  let language = [urlLanguage, saved].find(value => value === 'ja' || value === 'en') || browserLanguage;
   const dictionary = Object.assign(Object.create(null), window.lessonEnglish, window.lessonTerms);
   // Insertions such as a terminal ID or a live measurement separate the static phrases.
   const escape = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -129,6 +130,11 @@
     observer.disconnect();
     document.documentElement.lang = language;
     document.querySelectorAll('[data-language]').forEach(select => {select.value = language;});
+    document.querySelectorAll('a[data-share-ja][data-share-en]').forEach(link => {
+      const url = new URL(link.href);
+      url.searchParams.set('text', language === 'en' ? link.dataset.shareEn : link.dataset.shareJa);
+      link.href = url.href;
+    });
     document.dispatchEvent(new Event('lessonlanguagechange'));
     visit(document.head.querySelector('title')); visit(document.body);
     fitPartView();
