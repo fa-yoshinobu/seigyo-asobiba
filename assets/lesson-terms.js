@@ -1,6 +1,8 @@
 // Short labels for diagrams and reviewed electrical terminology take precedence over automatic translations.
 window.lessonTerms = {
   '触って、動かして、ときどき壊して覚える学習ソフトです。初めてならカチッとリレーから。応用例はリレー式エレベーターで観察できます。':'Learn by trying things, watching them work, and occasionally breaking them in a simulation. Start with Click Relay, then explore a practical application in Relay Elevator.',
+ 'リレー式天井クレーン':'Relay Overhead Crane','組んで遊ぶ':'Build and play','寸動':'Jog control','巻過防止':'Overwind protection','電磁ブレーキ':'Electromagnetic brake',
+ '主幹・巻上・横行・走行・ブレーキの回路を6か所選んで組み、押しボタンでクレーンを動かします。完成したら荷物を運んで遊べます。組み方を間違えると、短絡や過負荷が起きます。':'Choose contacts in six places to build the main, hoist, travel and brake circuits, then drive the crane from its pendant. Once it works, move loads around the bay. Wrong wiring causes short circuits or overloads.',
  'リレー式ピンボール':'Relay Pinball','遊んで観察':'Play and explore','得点モーター':'Score motor','得点リール':'Score reels','フリッパー':'Flippers',
  '玉を打ち返しながら、リレー・得点モーター・リール・フリッパーのしくみを観察します。自動プレイや役割ごとの回路図でも学べます。':'Play and discover how relays, score motors, reels and flippers work. Use auto play or explore one circuit function at a time.',
 

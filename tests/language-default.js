@@ -6,7 +6,7 @@ const {chromium} = require('playwright');
 (async () => {
   const browser = await chromium.launch();
   const files = ['index.html', 'apps/click-relay.html', 'apps/device-playground.html',
-    'apps/relay-elevator.html', 'apps/relay-pinball.html'];
+    'apps/relay-elevator.html', 'apps/relay-pinball.html', 'apps/relay-crane.html'];
   const checkShare = async (page, language) => {
     const url = new URL(await page.locator('.share-link').getAttribute('href'));
     assert.equal(url.origin + url.pathname, 'https://x.com/intent/tweet');
@@ -50,7 +50,7 @@ const {chromium} = require('playwright');
       assert.equal(await page.locator('html').getAttribute('lang'), selected, 'Invalid URL language does not override saved choice');
       await context.close();
     }
-    console.log('PASS language default: all 5 pages in en-US/en-GB/ja-JP, saved choice and URL precedence');
+    console.log('PASS language default: all 6 pages in en-US/en-GB/ja-JP, saved choice and URL precedence');
   } finally {
     await browser.close();
   }
